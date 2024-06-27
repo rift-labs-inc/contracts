@@ -15,6 +15,9 @@ contract RiftExchangeTest is Test {
     address buyer2 = address(0x222222);
     address buyer3 = address(0x333333);
 
+	address WETH = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+	address WBTC = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+
     bytes4 constant DEPOSIT_TOO_LOW = bytes4(keccak256('DepositTooLow()'));
     bytes4 constant DEPOSIT_TOO_HIGH = bytes4(keccak256('DepositTooHigh()'));
     bytes4 constant INVALID_BTC_PAYOUT_ADDRESS = bytes4(keccak256('InvalidBitcoinAddress()'));
@@ -34,7 +37,7 @@ contract RiftExchangeTest is Test {
     //--------- DEPOSIT TESTS ---------//
 
     function testDepositLiquidity() public {
-        vm.deal(testAddress, 10 ether);
+        deal(testAddress, 10 ether);
         vm.startPrank(testAddress);
 
         bytes32 btcPayoutAddress = keccak256(abi.encodePacked('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'));

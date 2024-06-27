@@ -2,7 +2,7 @@
 pragma solidity ^0.8.2;
 
 import { UltraVerifier as TransactionInclusionPlonkVerification } from './verifiers/TransactionInclusionPlonkVerification.sol';
-import { BlockHashStorage } from './BlockHashStorage.sol';
+import { BlockHeaderStorage } from './BlockHeaderStorage.sol';
 import { console } from 'forge-std/console.sol';
 
 interface IERC20 {
@@ -40,7 +40,7 @@ error InvalidUpdateWithActiveReservations();
 error StillInChallengePeriod();
 error ReservationNotUnlocked();
 
-abstract contract RiftExchange is BlockHeaderStorage {
+contract RiftExchange is BlockHeaderStorage {
     uint256 public constant RESERVATION_LOCKUP_PERIOD = 6 hours; // TODO: get longest 6 block confirmation time
     uint256 public constant CHALLENGE_PERIOD = 10 minutes;
     uint16 public constant MAX_DEPOSIT_OUTPUTS = 50;
