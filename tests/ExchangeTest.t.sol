@@ -56,8 +56,12 @@ contract RiftExchangeTest is Test {
     //--------- DEPOSIT TESTS ---------//
 
     function testDepositLiquidity() public {
-        deal(testAddress, 10 ether);
+        address wETH = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+        deal(address(wETH), testAddress, 10000e18);
         vm.startPrank(testAddress);
+
+        console.log("Starting deposit transaction...");
+        // console.log("testaddress wETH balance: ", wETH.balanceOf(testAddress));
 
         bytes32 btcPayoutAddress = keccak256(
             abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq")

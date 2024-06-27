@@ -77,7 +77,7 @@ contract RiftExchange is BlockHashStorage {
         uint256 initialBalance;
         uint256 unreservedBalance; // true balance = unreservedBalance + sum(!completed && !dead && expired SwapReservations on this vault)
         uint256 btcExchangeRate; // amount of btc per 1 eth, in sats
-        bytes32 btcPayoutAddress;
+        bytes32 btcPayoutLockingScript;
     }
 
     enum ReservationState {
@@ -136,7 +136,7 @@ contract RiftExchange is BlockHashStorage {
 
     //--------- WRITE FUNCTIONS ---------//
     function depositLiquidity(
-        bytes32 btcPayoutAddress,
+        bytes32 btcPayoutLockingScript,
         uint256 btcExchangeRate,
         int256 vaultIndexToOverwrite,
         uint256 depositAmount,
@@ -187,7 +187,7 @@ contract RiftExchange is BlockHashStorage {
             emptyVault.initialBalance = depositAmount;
             emptyVault.unreservedBalance = depositAmount;
             emptyVault.btcExchangeRate = btcExchangeRate;
-            emptyVault.btcPayoutAddress = btcPayoutAddress;
+            emptyVault.btcPayoutLockingScript = btcPayoutLockingScript;
         }
         // [6] otherwise, create a new deposit vault if none are empty
         else {
@@ -196,7 +196,7 @@ contract RiftExchange is BlockHashStorage {
                     initialBalance: depositAmount,
                     unreservedBalance: depositAmount,
                     btcExchangeRate: btcExchangeRate,
-                    btcPayoutAddress: btcPayoutAddress
+                    btcPayoutLockingScript: btcPayoutLockingScript
                 })
             );
         }
@@ -553,6 +553,6 @@ contract RiftExchange is BlockHashStorage {
         vault.initialBalance = 0;
         vault.unreservedBalance = 0;
         vault.btcExchangeRate = 0;
-        vault.btcPayoutAddress = "";
+        vault.btcPayoutLockingScript = "";
     }
 }
