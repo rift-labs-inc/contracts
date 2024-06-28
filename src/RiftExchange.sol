@@ -13,6 +13,11 @@ interface IERC20 {
     ) external returns (bool);
 
     function balanceOf(address account) external view returns (uint256);
+
+    function allowance(
+        address owner,
+        address spender
+    ) external view returns (uint256);
 }
 
 error DepositTooLow();
@@ -270,7 +275,7 @@ contract RiftExchange is BlockHashStorage {
         address ethPayoutAddress,
         string memory btcSenderAddress,
         uint256[] memory expiredSwapReservationIndexes
-    ) public payable {
+    ) public {
         // [0] calculate total amount of ETH the user is attempting to reserve
         uint256 combinedAmountsToReserve = 0;
         for (uint i = 0; i < amountsToReserve.length; i++) {
@@ -289,9 +294,10 @@ contract RiftExchange is BlockHashStorage {
         uint releaserFee = releaserReward +
             ((RELEASE_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
         // TODO: get historical priority fee and potentially add it ^
+        uint256 totalFees = proverFee + protocolFee + releaserFee;
 
         // [1] verify total swap amount is enough to cover fees
-        if (totalSwapAmount < (proverFee + protocolFee + releaserFee)) {
+        if (totalSwapAmount < totalFees) {
             revert ReservationAmountTooLow();
         }
 
@@ -371,11 +377,19 @@ contract RiftExchange is BlockHashStorage {
             );
         }
 
-        // transfer from user to contract
-        DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), totalSwapAmount); // TODO we only need to take 1% + fees not totalSwapAmount
+        // update unreserved balances in deposit vaults
+        for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
+            DepositVault storage vault = depositVaults[
+                vaultIndexesToReserve[i]
+            ];
+            vault.unreservedBalance -= amountsToReserve[i];
+        }
+
+        // transfer fees from user to contract
+        DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), totalFees);
 
         // transfer protocol fee
-        DEPOSIT_TOKEN.transferFrom(msg.sender, protocolAddress, protocolFee);
+        DEPOSIT_TOKEN.transferFrom(address(this), protocolAddress, protocolFee);
     }
 
     function unlockLiquidity(
@@ -485,6 +499,12 @@ contract RiftExchange is BlockHashStorage {
 
     function getDepositVaultsLength() public view returns (uint256) {
         return depositVaults.length;
+    }
+
+    function getDepositVaultUnreservedBalance(
+        uint256 depositIndex
+    ) public view returns (uint256) {
+        return depositVaults[depositIndex].unreservedBalance;
     }
 
     function getReservation(
