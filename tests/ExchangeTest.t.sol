@@ -4,33 +4,11 @@ pragma solidity ^0.8.0;
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {RiftExchange} from "../src/RiftExchange.sol";
-import {WETH9} from "../src/WETH.sol";
-
-interface IERC20 {
-    function balanceOf(address account) external view returns (uint256);
-
-    function transfer(
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    function allowance(
-        address owner,
-        address spender
-    ) external view returns (uint256);
-
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-}
+import {WETH} from "solmate/tokens/WETH.sol";
 
 contract RiftExchangeTest is Test {
     RiftExchange riftExchange;
-    WETH9 _weth;
+    WETH weth;
     address testAddress = address(0x123);
     address lp1 = address(0x69);
     address lp2 = address(0x69420);
@@ -38,9 +16,6 @@ contract RiftExchangeTest is Test {
     address buyer1 = address(0x111111);
     address buyer2 = address(0x222222);
     address buyer3 = address(0x333333);
-
-    address WETH = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    address WBTC = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
 
     bytes4 constant DEPOSIT_TOO_LOW = bytes4(keccak256("DepositTooLow()"));
     bytes4 constant DEPOSIT_TOO_HIGH = bytes4(keccak256("DepositTooHigh()"));
@@ -61,17 +36,16 @@ contract RiftExchangeTest is Test {
         );
         uint256 initialCheckpointHeight = 845690;
         address verifierContractAddress = address(0x123);
-        address depositTokenAddress = address(
-            0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
-        ); //weth address
         uint256 minDeposit = 0.5 ether;
         uint256 maxDeposit = 200_000 ether;
+
+		weth = new WETH();
 
         riftExchange = new RiftExchange(
             initialCheckpointHeight,
             initialBlockHash,
             verifierContractAddress,
-            depositTokenAddress,
+            address(weth),
             minDeposit,
             maxDeposit
         );
@@ -80,13 +54,13 @@ contract RiftExchangeTest is Test {
     //--------- DEPOSIT TESTS ---------//
 
     function testDepositLiquidity() public {
-        deal(address(_weth), testAddress, 10000e18);
+        deal(address(weth), testAddress, 10000e18);
         vm.startPrank(testAddress);
 
         console.log("Starting deposit transaction...");
         console.log(
             "testaddress wETH balance: ",
-            IERC20(WETH).balanceOf(testAddress)
+            weth.balanceOf(testAddress)
         );
 
         bytes32 btcPayoutAddress = keccak256(
