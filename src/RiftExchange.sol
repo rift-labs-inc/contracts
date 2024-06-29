@@ -49,8 +49,8 @@ contract RiftExchange is BlockHashStorage {
     uint256 public constant RESERVATION_LOCKUP_PERIOD = 6 hours; // TODO: get longest 6 block confirmation time
     uint256 public constant CHALLENGE_PERIOD = 10 minutes;
     uint16 public constant MAX_DEPOSIT_OUTPUTS = 50;
-    uint256 public constant PROOF_GAS_COST = 420_000;
-    uint256 public constant RELEASE_GAS_COST = 210_000;
+    uint256 public constant PROOF_GAS_COST = 420_000; // TODO: update to real value
+    uint256 public constant RELEASE_GAS_COST = 210_000; // TODO: update to real value
     uint256 public constant MIN_ORDER_GAS_MULTIPLIER = 2;
     uint8 public constant SAMPLING_SIZE = 10;
     uint256 public immutable MIN_DEPOSIT = 0.5 ether;
@@ -100,7 +100,7 @@ contract RiftExchange is BlockHashStorage {
         string btcSenderAddress;
         uint256 reservationTimestamp;
         uint256 confirmationBlockHeight;
-        uint256 unlockTimestamp;
+        uint256 unlockTimestamp; // timestamp when reservation was proven and unlocked
         bytes32 nonce; // sent in bitcoin tx calldata from buyer -> lps to prevent replay attacks
         uint256 totalSwapAmount;
         int256 prepaidFeeAmount;
@@ -390,7 +390,7 @@ contract RiftExchange is BlockHashStorage {
         // TODO: [1] verify proof (will revert if invalid)
         // verifierContract.verify(proof, publicInputs, ...);
 
-        // [2] add block to block header storage contract
+        // [2] add verified block to block header storage contract
         addBlock(blockCheckpointHeight, confirmationBlockHeightDelta, confirmationBlockHash);
 
         // [3] set confirmation block height in swap reservation
@@ -399,15 +399,12 @@ contract RiftExchange is BlockHashStorage {
         // [4] mark swap order as unlocked
         swapReservation.state = ReservationState.Unlocked;
 
-        // [5] payout prover (proving cost + proving reward)
-        uint proverFee = proverReward + ((PROOF_GAS_COST * block.basefee));
-        (bool proverPaymentSuccess, ) = msg.sender.call{value: proverFee}("");
-        if (!proverPaymentSuccess) {
-            revert WithdrawFailed();
-        }
+        // [5] payout prover (proving gas cost + proving reward)
+        uint proverPayoutAmount = proverReward + ((PROOF_GAS_COST * block.basefee)); // TODO: inspect if base block fee is what we want
+        DEPOSIT_TOKEN.transfer(msg.sender, proverPayoutAmount);
 
         // [6] subtract prover fee from prepaid fee amount
-        swapReservation.prepaidFeeAmount -= int256(proverFee);
+        swapReservation.prepaidFeeAmount -= int256(proverPayoutAmount);
 
         // [7] if prepaid fee amount is negative, subtract from total swap amount
         if (swapReservation.prepaidFeeAmount < 0) {
@@ -432,28 +429,25 @@ contract RiftExchange is BlockHashStorage {
             revert StillInChallengePeriod();
         }
 
-        // [5] payout releaser (release cost + releaser reward)
-        uint releaserFee = releaserReward + ((RELEASE_GAS_COST * block.basefee));
-        (bool releaserPaymentSuccess, ) = msg.sender.call{value: releaserFee}("");
-        if (!releaserPaymentSuccess) {
-            revert WithdrawFailed();
-        }
+        // [5] pay releaser (release cost + releaser reward)
+        uint releaserPayoutAmount = releaserReward + ((RELEASE_GAS_COST * block.basefee));
+        DEPOSIT_TOKEN.transfer(msg.sender, releaserPayoutAmount);
 
-        // [6] subtract prover fee from prepaid fee amount
-        swapReservation.prepaidFeeAmount -= int256(releaserFee);
+        // [6] subtract releaser fee from prepaid fee amount
+        swapReservation.prepaidFeeAmount -= int256(releaserPayoutAmount);
 
         // [7] if prepaid fee amount is negative, subtract from total swap amount
         if (swapReservation.prepaidFeeAmount < 0) {
             swapReservation.totalSwapAmount += uint256(swapReservation.prepaidFeeAmount);
+
+            // [8] reset prepaid fee amount to 0 (perhaps unnecessary)
+            swapReservation.prepaidFeeAmount = 0;
         }
 
-        // [x] release funds to buyers ETH payout address
-        (bool payoutSuccess, ) = swapReservation.ethPayoutAddress.call{value: swapReservation.totalSwapAmount}("");
-        if (!payoutSuccess) {
-            revert WithdrawFailed();
-        }
+        // [9] release funds to buyers ETH payout address
+        DEPOSIT_TOKEN.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapAmount);
 
-        // [x] mark swap reservation as completed
+        // [10] mark swap reservation as completed
         swapReservation.state = ReservationState.Completed;
     }
 
