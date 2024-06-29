@@ -6,18 +6,13 @@ import {BlockHashStorage} from "./BlockHashStorage.sol";
 import {console} from "forge-std/console.sol";
 
 interface IERC20 {
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+
+    function transfer(address recipient, uint256 amount) external returns (bool);
 
     function balanceOf(address account) external view returns (uint256);
 
-    function allowance(
-        address owner,
-        address spender
-    ) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
 }
 
 error DepositTooLow();
@@ -26,6 +21,7 @@ error DepositFailed();
 error exchangeRateZero();
 error WithdrawFailed();
 error LpDoesntExist();
+error NotVaultOwner();
 error TooManyLps();
 error NotEnoughLiquidity();
 error ReservationAmountTooLow();
@@ -80,7 +76,7 @@ contract RiftExchange is BlockHashStorage {
 
     struct DepositVault {
         uint256 initialBalance;
-        uint256 unreservedBalance; // true balance = unreservedBalance + sum(!completed && !dead && expired SwapReservations on this vault)
+        uint256 unreservedBalance; // true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
         uint256 btcExchangeRate; // amount of btc per 1 eth, in sats
         bytes32 btcPayoutLockingScript;
     }
@@ -88,10 +84,9 @@ contract RiftExchange is BlockHashStorage {
     enum ReservationState {
         None,
         Created,
-        Completed,
         Unlocked,
-        Released,
-        Expired
+        ExpiredAndAddedBackToVault,
+        Completed
     }
 
     enum DepositToken {
@@ -118,8 +113,7 @@ contract RiftExchange is BlockHashStorage {
     DepositVault[] public depositVaults;
 
     TransactionInclusionPlonkVerification public immutable verifierContract;
-    address payable protocolAddress =
-        payable(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+    address payable protocolAddress = payable(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
 
     //--------- CONSTRUCTOR ---------//
 
@@ -131,9 +125,7 @@ contract RiftExchange is BlockHashStorage {
         uint256 minDeposit,
         uint256 maxDeposit
     ) BlockHashStorage(initialCheckpointHeight, initialBlockHash) {
-        verifierContract = TransactionInclusionPlonkVerification(
-            verifierContractAddress
-        );
+        verifierContract = TransactionInclusionPlonkVerification(verifierContractAddress);
         DEPOSIT_TOKEN = IERC20(depositTokenAddress);
         MIN_DEPOSIT = minDeposit;
         MAX_DEPOSIT = maxDeposit;
@@ -161,9 +153,7 @@ contract RiftExchange is BlockHashStorage {
 
         // [3] create new liquidity provider if it doesn't exist
         if (liquidityProviders[msg.sender].depositVaultIndexes.length == 0) {
-            liquidityProviders[msg.sender] = LiquidityProvider({
-                depositVaultIndexes: new uint256[](0)
-            });
+            liquidityProviders[msg.sender] = LiquidityProvider({depositVaultIndexes: new uint256[](0)});
         }
 
         // [4] merge liquidity into vault with the same exchange rate if it exists
@@ -179,9 +169,7 @@ contract RiftExchange is BlockHashStorage {
         // [5] overwrite empty deposit vault
         else if (vaultIndexToOverwrite != -1) {
             // [0] retrieve deposit vault to overwrite
-            DepositVault storage emptyVault = depositVaults[
-                uint256(vaultIndexToOverwrite)
-            ];
+            DepositVault storage emptyVault = depositVaults[uint256(vaultIndexToOverwrite)];
 
             // [1] validate vault is empty
             if (emptyVault.unreservedBalance != 0) {
@@ -207,26 +195,30 @@ contract RiftExchange is BlockHashStorage {
         }
 
         // [7] add deposit vault index to liquidity provider
-        liquidityProviders[msg.sender].depositVaultIndexes.push(
-            depositVaults.length - 1
-        );
+        liquidityProviders[msg.sender].depositVaultIndexes.push(depositVaults.length - 1);
 
         // [8] transfer deposit token to contract
         DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), depositAmount);
     }
 
     function updateExchangeRate(
-        uint256 vaultIndex,
+        uint256 globalVaultIndex, // index of vault in depositVaults
+        uint256 localVaultIndex, // index of vault in LP's depositVaultIndexes array
         uint256 newBtcExchangeRate,
         uint256[] memory expiredReservationIndexes
     ) public {
+        // ensure msg.sender is vault owner
+        if (liquidityProviders[msg.sender].depositVaultIndexes[localVaultIndex] != globalVaultIndex) {
+            revert NotVaultOwner();
+        }
+
         // [0] validate new exchange rate
         if (newBtcExchangeRate == 0) {
             revert InvalidVaultUpdate();
         }
 
         // [1] retrieve deposit vault
-        DepositVault storage vault = depositVaults[vaultIndex];
+        DepositVault storage vault = depositVaults[globalVaultIndex];
 
         // cleanup dead swap reservations
         cleanUpDeadSwapReservations(expiredReservationIndexes);
@@ -241,31 +233,46 @@ contract RiftExchange is BlockHashStorage {
     }
 
     function withdrawLiquidity(
-        uint256 vaultIndex,
+        uint256 globalVaultIndex, // index of vault in depositVaults
+        uint256 localVaultIndex, // index of vault in LP's depositVaultIndexes array
         uint256 amountToWithdraw,
         uint256[] memory expiredReservationIndexes
     ) public {
-        // [0] validate vault index
-        if (vaultIndex >= depositVaults.length) {
-            revert InvalidVaultIndex();
+        // ensure msg.sender is vault owner
+        if (liquidityProviders[msg.sender].depositVaultIndexes[localVaultIndex] != globalVaultIndex) {
+            revert NotVaultOwner();
         }
 
-        // [1] retrieve the vault
-        DepositVault storage vault = depositVaults[vaultIndex];
+        console.log("vaultIndex: ", globalVaultIndex);
+        console.log(
+            "liquidityProviders[msg.sender].depositVaultIndexes[vaultIndex]: ",
+            liquidityProviders[msg.sender].depositVaultIndexes[globalVaultIndex]
+        );
 
         // clean up dead swap reservations
         cleanUpDeadSwapReservations(expiredReservationIndexes);
 
+        // [0] validate vault index
+        if (globalVaultIndex >= depositVaults.length) {
+            revert InvalidVaultIndex();
+        }
+
+        // [1] retrieve the vault
+        DepositVault storage vault = depositVaults[globalVaultIndex];
+
         // [2] validate amount to withdraw
-        if (
-            amountToWithdraw == 0 || amountToWithdraw > vault.unreservedBalance
-        ) {
+        if (amountToWithdraw == 0 || amountToWithdraw > vault.unreservedBalance) {
             revert WithdrawalAmountError();
         }
 
         // [3] withdraw funds to LP
+        console.log("unreservedBalance before: ", vault.unreservedBalance);
         vault.unreservedBalance -= amountToWithdraw;
-        DEPOSIT_TOKEN.transferFrom(address(this), msg.sender, amountToWithdraw);
+        console.log("unreservedBalance after: ", vault.unreservedBalance);
+        console.log("amountToWithdraw: ", amountToWithdraw);
+        console.log("contract balance: ", DEPOSIT_TOKEN.balanceOf(address(this)));
+
+        DEPOSIT_TOKEN.transfer(msg.sender, amountToWithdraw);
     }
 
     function reserveLiquidity(
@@ -289,10 +296,8 @@ contract RiftExchange is BlockHashStorage {
 
         // [1] calculate fees
         uint protocolFee = (totalSwapAmount * (protocolFeeBP / 10_000));
-        uint proverFee = proverReward +
-            ((PROOF_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
-        uint releaserFee = releaserReward +
-            ((RELEASE_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
+        uint proverFee = proverReward + ((PROOF_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
+        uint releaserFee = releaserReward + ((RELEASE_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
         // TODO: get historical priority fee and potentially add it ^
         uint256 totalFees = proverFee + protocolFee + releaserFee;
 
@@ -311,9 +316,7 @@ contract RiftExchange is BlockHashStorage {
         for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
             // [0] retrieve deposit vault
             uint256 amountToReserve = amountsToReserve[i];
-            DepositVault storage vault = depositVaults[
-                vaultIndexesToReserve[i]
-            ];
+            DepositVault storage vault = depositVaults[vaultIndexesToReserve[i]];
 
             // [1] ensure there is enough liquidity in this vault to reserve
             if (amountToReserve > vault.unreservedBalance) {
@@ -324,10 +327,7 @@ contract RiftExchange is BlockHashStorage {
         // [6] overwrite expired reservations if any slots are available
         if (expiredSwapReservationIndexes.length > 0) {
             // [1] retrieve expired reservation
-            SwapReservation
-                storage swapReservationToOverwrite = swapReservations[
-                    expiredSwapReservationIndexes[0]
-                ];
+            SwapReservation storage swapReservationToOverwrite = swapReservations[expiredSwapReservationIndexes[0]];
 
             // [2] overwrite expired reservation
             swapReservationToOverwrite.state = ReservationState.Created;
@@ -336,17 +336,10 @@ contract RiftExchange is BlockHashStorage {
             swapReservationToOverwrite.reservationTimestamp = block.timestamp;
             swapReservationToOverwrite.confirmationBlockHeight = 0;
             swapReservationToOverwrite.unlockTimestamp = 0;
-            swapReservationToOverwrite.prepaidFeeAmount = int256(
-                proverFee + releaserFee
-            );
+            swapReservationToOverwrite.prepaidFeeAmount = int256(proverFee + releaserFee);
             swapReservationToOverwrite.totalSwapAmount = totalSwapAmount;
             swapReservationToOverwrite.nonce = keccak256(
-                abi.encode(
-                    ethPayoutAddress,
-                    btcSenderAddress,
-                    block.timestamp,
-                    block.chainid
-                )
+                abi.encode(ethPayoutAddress, btcSenderAddress, block.timestamp, block.chainid)
             );
             swapReservationToOverwrite.vaultIndexes = vaultIndexesToReserve;
             swapReservationToOverwrite.amountsToReserve = amountsToReserve;
@@ -363,14 +356,7 @@ contract RiftExchange is BlockHashStorage {
                     unlockTimestamp: 0,
                     totalSwapAmount: totalSwapAmount,
                     prepaidFeeAmount: int256(proverFee + releaserFee),
-                    nonce: keccak256(
-                        abi.encode(
-                            ethPayoutAddress,
-                            btcSenderAddress,
-                            block.timestamp,
-                            block.chainid
-                        )
-                    ),
+                    nonce: keccak256(abi.encode(ethPayoutAddress, btcSenderAddress, block.timestamp, block.chainid)),
                     vaultIndexes: vaultIndexesToReserve,
                     amountsToReserve: amountsToReserve
                 })
@@ -379,9 +365,7 @@ contract RiftExchange is BlockHashStorage {
 
         // update unreserved balances in deposit vaults
         for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
-            DepositVault storage vault = depositVaults[
-                vaultIndexesToReserve[i]
-            ];
+            DepositVault storage vault = depositVaults[vaultIndexesToReserve[i]];
             vault.unreservedBalance -= amountsToReserve[i];
         }
 
@@ -401,19 +385,13 @@ contract RiftExchange is BlockHashStorage {
         bytes memory proof
     ) public {
         // [0] retrieve swap order
-        SwapReservation storage swapReservation = swapReservations[
-            swapReservationIndex
-        ];
+        SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
 
         // TODO: [1] verify proof (will revert if invalid)
         // verifierContract.verify(proof, publicInputs, ...);
 
         // [2] add block to block header storage contract
-        addBlock(
-            blockCheckpointHeight,
-            confirmationBlockHeightDelta,
-            confirmationBlockHash
-        );
+        addBlock(blockCheckpointHeight, confirmationBlockHeightDelta, confirmationBlockHash);
 
         // [3] set confirmation block height in swap reservation
         swapReservation.confirmationBlockHeight = blockCheckpointHeight;
@@ -433,9 +411,7 @@ contract RiftExchange is BlockHashStorage {
 
         // [7] if prepaid fee amount is negative, subtract from total swap amount
         if (swapReservation.prepaidFeeAmount < 0) {
-            swapReservation.totalSwapAmount += uint256(
-                swapReservation.prepaidFeeAmount
-            );
+            swapReservation.totalSwapAmount += uint256(swapReservation.prepaidFeeAmount);
 
             // [8] reset prepaid fee amount to 0 so its not subtracted again during release
             swapReservation.prepaidFeeAmount = 0;
@@ -444,9 +420,7 @@ contract RiftExchange is BlockHashStorage {
 
     function releaseLiquidity(uint256 swapReservationIndex) public {
         // [0] retrieve swap order
-        SwapReservation storage swapReservation = swapReservations[
-            swapReservationIndex
-        ];
+        SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
 
         // [1] validate swap order is unlocked
         if (swapReservation.state != ReservationState.Unlocked) {
@@ -454,18 +428,13 @@ contract RiftExchange is BlockHashStorage {
         }
 
         // [2] ensure 10 mins have passed since unlock timestamp (challenge period)
-        if (
-            block.timestamp - swapReservation.unlockTimestamp < CHALLENGE_PERIOD
-        ) {
+        if (block.timestamp - swapReservation.unlockTimestamp < CHALLENGE_PERIOD) {
             revert StillInChallengePeriod();
         }
 
         // [5] payout releaser (release cost + releaser reward)
-        uint releaserFee = releaserReward +
-            ((RELEASE_GAS_COST * block.basefee));
-        (bool releaserPaymentSuccess, ) = msg.sender.call{value: releaserFee}(
-            ""
-        );
+        uint releaserFee = releaserReward + ((RELEASE_GAS_COST * block.basefee));
+        (bool releaserPaymentSuccess, ) = msg.sender.call{value: releaserFee}("");
         if (!releaserPaymentSuccess) {
             revert WithdrawFailed();
         }
@@ -475,25 +444,22 @@ contract RiftExchange is BlockHashStorage {
 
         // [7] if prepaid fee amount is negative, subtract from total swap amount
         if (swapReservation.prepaidFeeAmount < 0) {
-            swapReservation.totalSwapAmount += uint256(
-                swapReservation.prepaidFeeAmount
-            );
+            swapReservation.totalSwapAmount += uint256(swapReservation.prepaidFeeAmount);
         }
 
         // [x] release funds to buyers ETH payout address
-        (bool payoutSuccess, ) = swapReservation.ethPayoutAddress.call{
-            value: swapReservation.totalSwapAmount
-        }("");
+        (bool payoutSuccess, ) = swapReservation.ethPayoutAddress.call{value: swapReservation.totalSwapAmount}("");
         if (!payoutSuccess) {
             revert WithdrawFailed();
         }
+
+        // [x] mark swap reservation as completed
+        swapReservation.state = ReservationState.Completed;
     }
 
     //--------- READ FUNCTIONS ---------//
 
-    function getDepositVault(
-        uint256 depositIndex
-    ) public view returns (DepositVault memory) {
+    function getDepositVault(uint256 depositIndex) public view returns (DepositVault memory) {
         return depositVaults[depositIndex];
     }
 
@@ -501,15 +467,11 @@ contract RiftExchange is BlockHashStorage {
         return depositVaults.length;
     }
 
-    function getDepositVaultUnreservedBalance(
-        uint256 depositIndex
-    ) public view returns (uint256) {
+    function getDepositVaultUnreservedBalance(uint256 depositIndex) public view returns (uint256) {
         return depositVaults[depositIndex].unreservedBalance;
     }
 
-    function getReservation(
-        uint256 reservationIndex
-    ) public view returns (SwapReservation memory) {
+    function getReservation(uint256 reservationIndex) public view returns (SwapReservation memory) {
         return swapReservations[reservationIndex];
     }
 
@@ -520,45 +482,30 @@ contract RiftExchange is BlockHashStorage {
     //--------- INTERNAL FUNCTIONS ---------//
 
     // unreserved balance + expired reservations
-    function cleanUpDeadSwapReservations(
-        uint256[] memory expiredReservationIndexes
-    ) internal {
+    function cleanUpDeadSwapReservations(uint256[] memory expiredReservationIndexes) internal {
         for (uint i = 0; i < expiredReservationIndexes.length; i++) {
+            // [0] verify reservations are expired
             verifyExpiredReservations(expiredReservationIndexes);
-            console.log(
-                "expiredReservationIndexes[i]: ",
-                expiredReservationIndexes[i]
-            );
+            console.log("expiredReservationIndexes[i]: ", expiredReservationIndexes[i]);
 
-            SwapReservation storage expiredSwapReservation = swapReservations[
-                expiredReservationIndexes[i]
-            ];
+            // [1] extract reservation
+            SwapReservation storage expiredSwapReservation = swapReservations[expiredReservationIndexes[i]];
 
-            expiredSwapReservation.state = ReservationState.Expired;
-
-            // add expired reservation amounts to deposit vaults
-            for (
-                uint j = 0;
-                j < expiredSwapReservation.vaultIndexes.length;
-                j++
-            ) {
-                DepositVault storage expiredVault = depositVaults[
-                    expiredSwapReservation.vaultIndexes[j]
-                ];
-                expiredVault.unreservedBalance += expiredSwapReservation
-                    .amountsToReserve[j];
+            // [2] add expired reservation amounts to deposit vaults
+            for (uint j = 0; j < expiredSwapReservation.vaultIndexes.length; j++) {
+                DepositVault storage expiredVault = depositVaults[expiredSwapReservation.vaultIndexes[j]];
+                expiredVault.unreservedBalance += expiredSwapReservation.amountsToReserve[j];
             }
+
+            // [3] mark as expired
+            expiredSwapReservation.state = ReservationState.ExpiredAndAddedBackToVault;
         }
     }
 
-    function verifyExpiredReservations(
-        uint256[] memory expiredReservationIndexes
-    ) internal view {
+    function verifyExpiredReservations(uint256[] memory expiredReservationIndexes) internal view {
         for (uint i = 0; i < expiredReservationIndexes.length; i++) {
             if (
-                block.timestamp -
-                    swapReservations[expiredReservationIndexes[i]]
-                        .reservationTimestamp <
+                block.timestamp - swapReservations[expiredReservationIndexes[i]].reservationTimestamp <
                 RESERVATION_LOCKUP_PERIOD
             ) {
                 revert ReservationNotExpired();
@@ -566,7 +513,7 @@ contract RiftExchange is BlockHashStorage {
         }
     }
 
-    // --------- TESTING FUNCTIONS (DELETE) --------- //
+    // --------- TESTING FUNCTIONS (TODO: DELETE) --------- //
 
     function emptyDepositVault(uint256 vaultIndex) public {
         DepositVault storage vault = depositVaults[vaultIndex];
