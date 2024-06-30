@@ -76,8 +76,13 @@ contract RiftExchange is BlockHashStorage {
 
     struct DepositVault {
         uint256 initialBalance;
-        uint256 unreservedBalance; // true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
-        uint256 btcExchangeRate; // amount of btc per 1 eth, in sats
+        uint192 unreservedBalance; // true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
+		/*
+			2⁶⁴ = max rate container
+		   -----                     = 1.84 x 10¹¹ max btc per eth rate
+			10⁸ = 1 btc in sats
+		*/
+        uint64 btcExchangeRate; // amount of btc per 1 eth, in sats
         bytes32 btcPayoutLockingScript;
     }
 
@@ -89,23 +94,18 @@ contract RiftExchange is BlockHashStorage {
         Completed
     }
 
-    enum DepositToken {
-        WETH,
-        WBTC
-    }
-
     struct SwapReservation {
         ReservationState state;
         address ethPayoutAddress;
-        string btcSenderAddress;
         uint256 reservationTimestamp;
         uint256 confirmationBlockHeight;
         uint256 unlockTimestamp; // timestamp when reservation was proven and unlocked
+		bytes32 lpReservationHash;
         bytes32 nonce; // sent in bitcoin tx calldata from buyer -> lps to prevent replay attacks
         uint256 totalSwapAmount;
         int256 prepaidFeeAmount;
         uint256[] vaultIndexes;
-        uint256[] amountsToReserve;
+        uint192[] amountsToReserve;
     }
 
     mapping(address => LiquidityProvider) liquidityProviders; // lpAddress => LiquidityProvider
@@ -134,9 +134,9 @@ contract RiftExchange is BlockHashStorage {
     //--------- WRITE FUNCTIONS ---------//
     function depositLiquidity(
         bytes32 btcPayoutLockingScript,
-        uint256 btcExchangeRate,
+        uint64 btcExchangeRate,
         int256 vaultIndexToOverwrite,
-        uint256 depositAmount,
+        uint192 depositAmount,
         int256 vaultIndexWithSameExchangeRate
     ) public {
         // [0] validate deposit amount
@@ -204,7 +204,7 @@ contract RiftExchange is BlockHashStorage {
     function updateExchangeRate(
         uint256 globalVaultIndex, // index of vault in depositVaults
         uint256 localVaultIndex, // index of vault in LP's depositVaultIndexes array
-        uint256 newBtcExchangeRate,
+        uint64 newBtcExchangeRate,
         uint256[] memory expiredReservationIndexes
     ) public {
         // ensure msg.sender is vault owner
@@ -235,7 +235,7 @@ contract RiftExchange is BlockHashStorage {
     function withdrawLiquidity(
         uint256 globalVaultIndex, // index of vault in depositVaults
         uint256 localVaultIndex, // index of vault in LP's depositVaultIndexes array
-        uint256 amountToWithdraw,
+        uint192 amountToWithdraw,
         uint256[] memory expiredReservationIndexes
     ) public {
         // ensure msg.sender is vault owner
@@ -277,10 +277,9 @@ contract RiftExchange is BlockHashStorage {
 
     function reserveLiquidity(
         uint256[] memory vaultIndexesToReserve,
-        uint256[] memory amountsToReserve,
+        uint192[] memory amountsToReserve,
         uint256 totalSwapAmount, // TODO: update this to be and check whats good
         address ethPayoutAddress,
-        string memory btcSenderAddress,
         uint256[] memory expiredSwapReservationIndexes
     ) public {
         // [0] calculate total amount of ETH the user is attempting to reserve
@@ -299,10 +298,10 @@ contract RiftExchange is BlockHashStorage {
         uint proverFee = proverReward + ((PROOF_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
         uint releaserFee = releaserReward + ((RELEASE_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
         // TODO: get historical priority fee and potentially add it ^
-        uint256 totalFees = proverFee + protocolFee + releaserFee;
+        //uint256 totalFees = (proverFee + protocolFee + releaserFee);
 
         // [1] verify total swap amount is enough to cover fees
-        if (totalSwapAmount < totalFees) {
+        if (totalSwapAmount < (proverFee + protocolFee + releaserFee)) {
             revert ReservationAmountTooLow();
         }
 
@@ -312,17 +311,24 @@ contract RiftExchange is BlockHashStorage {
         // [4] clean up dead swap reservations
         cleanUpDeadSwapReservations(expiredSwapReservationIndexes);
 
-        // [5] check if there is enough liquidity in each deposit vaults to reserve
-        for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
-            // [0] retrieve deposit vault
-            uint256 amountToReserve = amountsToReserve[i];
-            DepositVault storage vault = depositVaults[vaultIndexesToReserve[i]];
+		bytes32 vaultHash;
 
-            // [1] ensure there is enough liquidity in this vault to reserve
-            if (amountToReserve > vault.unreservedBalance) {
-                revert NotEnoughLiquidity();
-            }
-        }
+		// [5] check if there is enough liquidity in each deposit vaults to reserve
+		for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
+			// [0] retrieve deposit vault
+			uint192 unreservedBalance = depositVaults[vaultIndexesToReserve[i]].unreservedBalance;
+			vaultHash = keccak256(abi.encode(
+				unreservedBalance,
+				depositVaults[vaultIndexesToReserve[i]].btcExchangeRate,
+				depositVaults[vaultIndexesToReserve[i]].btcPayoutLockingScript,
+				vaultHash
+			));
+
+			// [1] ensure there is enough liquidity in this vault to reserve
+			if (amountsToReserve[i] > unreservedBalance) {
+				revert NotEnoughLiquidity();
+			}
+		}
 
         // [6] overwrite expired reservations if any slots are available
         if (expiredSwapReservationIndexes.length > 0) {
@@ -332,17 +338,17 @@ contract RiftExchange is BlockHashStorage {
             // [2] overwrite expired reservation
             swapReservationToOverwrite.state = ReservationState.Created;
             swapReservationToOverwrite.ethPayoutAddress = ethPayoutAddress;
-            swapReservationToOverwrite.btcSenderAddress = btcSenderAddress;
             swapReservationToOverwrite.reservationTimestamp = block.timestamp;
             swapReservationToOverwrite.confirmationBlockHeight = 0;
             swapReservationToOverwrite.unlockTimestamp = 0;
             swapReservationToOverwrite.prepaidFeeAmount = int256(proverFee + releaserFee);
             swapReservationToOverwrite.totalSwapAmount = totalSwapAmount;
             swapReservationToOverwrite.nonce = keccak256(
-                abi.encode(ethPayoutAddress, btcSenderAddress, block.timestamp, block.chainid)
+                abi.encode(ethPayoutAddress, block.timestamp, block.chainid)
             );
             swapReservationToOverwrite.vaultIndexes = vaultIndexesToReserve;
             swapReservationToOverwrite.amountsToReserve = amountsToReserve;
+			swapReservationToOverwrite.lpReservationHash = vaultHash;
         }
         // otherwise push new reservation if no expired reservations slots are available
         else {
@@ -350,13 +356,13 @@ contract RiftExchange is BlockHashStorage {
                 SwapReservation({
                     state: ReservationState.Created,
                     ethPayoutAddress: ethPayoutAddress,
-                    btcSenderAddress: btcSenderAddress,
                     reservationTimestamp: block.timestamp,
                     confirmationBlockHeight: 0,
                     unlockTimestamp: 0,
                     totalSwapAmount: totalSwapAmount,
                     prepaidFeeAmount: int256(proverFee + releaserFee),
-                    nonce: keccak256(abi.encode(ethPayoutAddress, btcSenderAddress, block.timestamp, block.chainid)),
+                    nonce: keccak256(abi.encode(ethPayoutAddress, block.timestamp, block.chainid)),
+					lpReservationHash: vaultHash,
                     vaultIndexes: vaultIndexesToReserve,
                     amountsToReserve: amountsToReserve
                 })
@@ -365,12 +371,11 @@ contract RiftExchange is BlockHashStorage {
 
         // update unreserved balances in deposit vaults
         for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
-            DepositVault storage vault = depositVaults[vaultIndexesToReserve[i]];
-            vault.unreservedBalance -= amountsToReserve[i];
+			depositVaults[vaultIndexesToReserve[i]].unreservedBalance -= amountsToReserve[i];
         }
 
         // transfer fees from user to contract
-        DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), totalFees);
+        DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), (proverFee + protocolFee + releaserFee));
 
         // transfer protocol fee
         DEPOSIT_TOKEN.transferFrom(address(this), protocolAddress, protocolFee);

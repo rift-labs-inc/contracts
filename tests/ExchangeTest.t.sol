@@ -58,8 +58,8 @@ contract RiftExchangeTest is Test {
         console.log("testaddress wETH balance: ", weth.balanceOf(testAddress));
 
         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-        uint256 btcExchangeRate = 69;
-        uint256 depositAmount = 1.2 ether;
+        uint64 btcExchangeRate = 69;
+        uint192 depositAmount = 1.2 ether;
 
         weth.approve(address(riftExchange), depositAmount);
 
@@ -91,8 +91,8 @@ contract RiftExchangeTest is Test {
 
         // initial deposit
         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-        uint256 btcExchangeRate = 69;
-        uint256 initialDepositAmount = 1.2 ether;
+        uint64 btcExchangeRate = 69;
+        uint192 initialDepositAmount = 1.2 ether;
         riftExchange.depositLiquidity(
             btcPayoutLockingScript,
             btcExchangeRate,
@@ -105,8 +105,8 @@ contract RiftExchangeTest is Test {
         riftExchange.emptyDepositVault(0);
 
         // overwrite deposit vault
-        uint256 newDepositAmount = 2.4 ether; // new amount to deposit
-        uint256 newBtcExchangeRate = 75; // new BTC exchange rate
+        uint192 newDepositAmount = 2.4 ether; // new amount to deposit
+        uint64 newBtcExchangeRate = 75; // new BTC exchange rate
         int256 vaultIndexToOverwrite = 0;
 
         console.log("TOTAL DEPOSITS BEFORE OVERWRITE", riftExchange.getDepositVaultsLength());
@@ -150,8 +150,8 @@ contract RiftExchangeTest is Test {
         uint256 lastDepositGasCost;
 
         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-        uint256 btcExchangeRate = 69;
-        uint256 depositAmount = 500 ether;
+        uint64 btcExchangeRate = 69;
+        uint192 depositAmount = 500 ether;
         uint256 totalGasUsed = 0; // Variable to keep track of the total gas used
 
         // Loop to create multiple deposits
@@ -195,8 +195,8 @@ contract RiftExchangeTest is Test {
         weth.approve(address(riftExchange), 10 ether);
 
         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-        uint256 initialBtcExchangeRate = 69;
-        uint256 depositAmount = 1 ether;
+        uint64 initialBtcExchangeRate = 69;
+        uint192 depositAmount = 1 ether;
 
         // create initial deposit
         riftExchange.depositLiquidity(
@@ -208,7 +208,7 @@ contract RiftExchangeTest is Test {
         );
 
         // update the BTC exchange rate
-        uint256 newBtcExchangeRate = 75;
+        uint64 newBtcExchangeRate = 75;
         console.log("Updating BTC exchange rate from", initialBtcExchangeRate, "to", newBtcExchangeRate);
         uint256[] memory empty = new uint256[](0);
         riftExchange.updateExchangeRate(0, 0, newBtcExchangeRate, empty);
@@ -232,8 +232,8 @@ contract RiftExchangeTest is Test {
         vm.startPrank(testAddress);
         weth.approve(address(riftExchange), 5 ether);
         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-        uint256 btcExchangeRate = 69;
-        uint256 depositAmount = 5 ether;
+        uint64 btcExchangeRate = 69;
+        uint192 depositAmount = 5 ether;
 
         // deposit liquidity
         riftExchange.depositLiquidity(
@@ -251,7 +251,7 @@ contract RiftExchangeTest is Test {
         // setup for reservation
         uint256[] memory vaultIndexesToReserve = new uint256[](1);
         vaultIndexesToReserve[0] = 0;
-        uint256[] memory amountsToReserve = new uint256[](1);
+        uint192[] memory amountsToReserve = new uint192[](1);
         amountsToReserve[0] = 1 ether;
         uint256 totalSwapAmount = 1 ether; // total amount expected to swap
         uint256[] memory empty = new uint256[](0);
@@ -265,7 +265,6 @@ contract RiftExchangeTest is Test {
             amountsToReserve,
             totalSwapAmount,
             testAddress,
-            "bc1qsenderaddress",
             empty
         );
         uint256 gasUsed = gasBefore - gasleft();
@@ -276,7 +275,6 @@ contract RiftExchangeTest is Test {
 
         // assertions
         assertEq(reservation.ethPayoutAddress, testAddress, "ETH payout address should match");
-        assertEq(reservation.btcSenderAddress, "bc1qsenderaddress", "BTC sender address should match");
         assertEq(reservation.totalSwapAmount, totalSwapAmount, "Total swap amount should match");
 
         // validate balances and state changes
@@ -298,15 +296,15 @@ contract RiftExchangeTest is Test {
         vm.startPrank(testAddress);
         weth.approve(address(riftExchange), 5000000 ether);
         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-        uint256 btcExchangeRate = 69;
-        uint256 depositAmount = 50 ether;
+        uint64 btcExchangeRate = 69;
+        uint192 depositAmount = 50 ether;
 
         // deposit liquidity
         riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, depositAmount, -1);
 
         uint256[] memory vaultIndexesToReserve = new uint256[](1);
         vaultIndexesToReserve[0] = 0;
-        uint256[] memory amountsToReserve = new uint256[](1);
+        uint192[] memory amountsToReserve = new uint192[](1);
         amountsToReserve[0] = 1 ether;
         uint256 totalSwapAmount = 1 ether;
         uint256[] memory empty = new uint256[](0);
@@ -323,7 +321,6 @@ contract RiftExchangeTest is Test {
                 amountsToReserve,
                 totalSwapAmount,
                 testAddress,
-                "bc1qsenderaddress",
                 empty
             );
             uint256 gasUsed = gasBefore - gasleft();
@@ -362,20 +359,19 @@ contract RiftExchangeTest is Test {
         weth.approve(address(riftExchange), 1000000 ether);
 
         uint256 maxVaults = 100;
-        uint256 depositAmount = 500 ether;
-        uint256 btcExchangeRate = 69;
+        uint192 depositAmount = 500 ether;
+        uint64 btcExchangeRate = 69;
         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
 
         // create multiple vaults
         for (uint256 i = 0; i < maxVaults; i++) {
             riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, depositAmount, -1);
         }
-        string memory btcSenderAddress = "bc1qsenderaddress";
 
         // reserve liquidity from varying vaults
         for (uint256 numVaults = 1; numVaults <= maxVaults; numVaults++) {
             uint256[] memory vaultIndexesToReserve = new uint256[](numVaults);
-            uint256[] memory amountsToReserve = new uint256[](numVaults);
+            uint192[] memory amountsToReserve = new uint192[](numVaults);
 
             for (uint256 j = 0; j < numVaults; j++) {
                 vaultIndexesToReserve[j] = j;
@@ -393,7 +389,6 @@ contract RiftExchangeTest is Test {
                 amountsToReserve,
                 totalSwapAmount,
                 testAddress,
-                btcSenderAddress,
                 emptyExpiredReservations
             );
             uint256 gasUsed = gasBefore - gasleft();
@@ -411,26 +406,23 @@ contract RiftExchangeTest is Test {
 
         // deposit liquidity
         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-        uint256 btcExchangeRate = 69;
-        uint256 depositAmount = 5 ether;
+        uint64 btcExchangeRate = 69;
+        uint192 depositAmount = 5 ether;
 
         riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, depositAmount, -1);
 
         // initial reserve liquidity
         uint256[] memory vaultIndexesToReserve = new uint256[](1);
         vaultIndexesToReserve[0] = 0;
-        uint256[] memory amountsToReserve = new uint256[](1);
+        uint192[] memory amountsToReserve = new uint192[](1);
         amountsToReserve[0] = 1 ether;
-        string memory btcSenderAddressInitial = "bc1qinitialsender";
         uint256[] memory empty = new uint256[](0);
-        console.log("iniial btc sender address:", btcSenderAddressInitial);
 
         riftExchange.reserveLiquidity(
             vaultIndexesToReserve,
             amountsToReserve,
             1 ether,
             testAddress,
-            btcSenderAddressInitial,
             empty
         );
 
@@ -439,26 +431,18 @@ contract RiftExchangeTest is Test {
         uint256[] memory expiredSwapReservationIndexes = new uint256[](1);
 
         // overwrite reservation with new parameters
-        string memory btcSenderAddressOverwrite = "bc1qoverwritesender"; // BTC sender address for the overwrite
         riftExchange.reserveLiquidity(
             vaultIndexesToReserve,
             amountsToReserve,
             1 ether, // total swap amount, should be the same as initial if amount to reserve hasn't changed
             testAddress, // ETH payout address
-            btcSenderAddressOverwrite,
             expiredSwapReservationIndexes
         );
 
         // Verify the reservation overwrite
         RiftExchange.SwapReservation memory overwrittenReservation = riftExchange.getReservation(0); // Assuming a method to fetch by index
         assertEq(overwrittenReservation.ethPayoutAddress, testAddress, "ETH payout address should match");
-        assertEq(
-            overwrittenReservation.btcSenderAddress,
-            btcSenderAddressOverwrite,
-            "BTC sender address should be updated to new one"
-        );
         assertEq(overwrittenReservation.amountsToReserve[0], amountsToReserve[0], "Reserved amount should match");
-        console.log("Overwritten BTC sender address:", overwrittenReservation.btcSenderAddress);
 
         vm.stopPrank();
     }
@@ -473,14 +457,14 @@ contract RiftExchangeTest is Test {
         weth.approve(address(testAddress), 100 ether);
 
         // [0] initial deposit
-        uint256 depositAmount = 5 ether;
+        uint192 depositAmount = 5 ether;
         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-        uint256 btcExchangeRate = 50;
+        uint64 btcExchangeRate = 50;
         riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, depositAmount, -1);
 
         // [1] withdraw some of the liquidity
         uint256[] memory empty = new uint256[](0);
-        uint256 withdrawAmount = 2 ether;
+        uint192 withdrawAmount = 2 ether;
         riftExchange.withdrawLiquidity(0, 0, withdrawAmount, empty);
 
         // [2] check if the balance has decreased correctly
@@ -508,16 +492,16 @@ contract RiftExchangeTest is Test {
         weth.approve(address(riftExchange), 10 ether);
 
         // deposit liquidity
-        uint256 depositAmount = 5 ether;
+        uint192 depositAmount = 5 ether;
         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-        uint256 initialBtcExchangeRate = 50;
+        uint64 initialBtcExchangeRate = 50;
         riftExchange.depositLiquidity(btcPayoutLockingScript, initialBtcExchangeRate, -1, depositAmount, -1);
 
         // update the exchange rate
         console.log("old exchange rate:", initialBtcExchangeRate);
         uint256 globalVaultIndex = 0;
         uint256 localVaultIndex = 0;
-        uint256 newBtcExchangeRate = 55;
+        uint64 newBtcExchangeRate = 55;
         uint256[] memory expiredReservationIndexes = new uint256[](0);
         riftExchange.updateExchangeRate(
             globalVaultIndex,
@@ -552,14 +536,13 @@ contract RiftExchangeTest is Test {
         vm.startPrank(testAddress);
         uint256[] memory vaultIndexesToReserve = new uint256[](1);
         vaultIndexesToReserve[0] = globalVaultIndex;
-        uint256[] memory amountsToReserve = new uint256[](1);
+        uint192[] memory amountsToReserve = new uint192[](1);
         amountsToReserve[0] = 1 ether;
         riftExchange.reserveLiquidity(
             vaultIndexesToReserve,
             amountsToReserve,
             1 ether,
             testAddress,
-            "bc1qsenderaddress",
             expiredReservationIndexes
         );
 
