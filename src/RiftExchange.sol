@@ -95,11 +95,11 @@ contract RiftExchange is BlockHashStorage {
     }
 
     struct SwapReservation {
+        uint32 confirmationBlockHeight;
+        uint32 reservationTimestamp;
+        uint32 unlockTimestamp; // timestamp when reservation was proven and unlocked
         ReservationState state;
         address ethPayoutAddress;
-        uint256 reservationTimestamp;
-        uint256 confirmationBlockHeight;
-        uint256 unlockTimestamp; // timestamp when reservation was proven and unlocked
 		bytes32 lpReservationHash;
         bytes32 nonce; // sent in bitcoin tx calldata from buyer -> lps to prevent replay attacks
         uint256 totalSwapAmount;
@@ -338,7 +338,7 @@ contract RiftExchange is BlockHashStorage {
             // [2] overwrite expired reservation
             swapReservationToOverwrite.state = ReservationState.Created;
             swapReservationToOverwrite.ethPayoutAddress = ethPayoutAddress;
-            swapReservationToOverwrite.reservationTimestamp = block.timestamp;
+            swapReservationToOverwrite.reservationTimestamp = uint32(block.timestamp);
             swapReservationToOverwrite.confirmationBlockHeight = 0;
             swapReservationToOverwrite.unlockTimestamp = 0;
             swapReservationToOverwrite.prepaidFeeAmount = int256(proverFee + releaserFee);
@@ -356,7 +356,7 @@ contract RiftExchange is BlockHashStorage {
                 SwapReservation({
                     state: ReservationState.Created,
                     ethPayoutAddress: ethPayoutAddress,
-                    reservationTimestamp: block.timestamp,
+                    reservationTimestamp: uint32(block.timestamp),
                     confirmationBlockHeight: 0,
                     unlockTimestamp: 0,
                     totalSwapAmount: totalSwapAmount,
@@ -384,7 +384,7 @@ contract RiftExchange is BlockHashStorage {
     function unlockLiquidity(
         uint256 swapReservationIndex,
         bytes32 btcBlockHash,
-        uint256 blockCheckpointHeight,
+        uint32 blockCheckpointHeight,
         bytes32 confirmationBlockHash, // 5 blocks ahead of blockCheckpointHeight + block delta
         uint256 confirmationBlockHeightDelta, // delta from blockCheckpointHeight
         bytes memory proof
