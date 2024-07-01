@@ -316,16 +316,15 @@ contract RiftExchange is BlockHashStorage {
 		// [5] check if there is enough liquidity in each deposit vaults to reserve
 		for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
 			// [0] retrieve deposit vault
-			uint192 unreservedBalance = depositVaults[vaultIndexesToReserve[i]].unreservedBalance;
 			vaultHash = keccak256(abi.encode(
-				unreservedBalance,
+				amountsToReserve[i],
 				depositVaults[vaultIndexesToReserve[i]].btcExchangeRate,
 				depositVaults[vaultIndexesToReserve[i]].btcPayoutLockingScript,
 				vaultHash
 			));
 
 			// [1] ensure there is enough liquidity in this vault to reserve
-			if (amountsToReserve[i] > unreservedBalance) {
+			if (amountsToReserve[i] > depositVaults[vaultIndexesToReserve[i]].unreservedBalance) {
 				revert NotEnoughLiquidity();
 			}
 		}
