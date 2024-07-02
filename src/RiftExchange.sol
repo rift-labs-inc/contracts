@@ -315,6 +315,21 @@ contract RiftExchange is BlockHashStorage {
 
 		// [5] check if there is enough liquidity in each deposit vaults to reserve
 		for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
+			// TODO_ALPINE: Remove this 
+			console.log("Vault Data [Encoded] ");
+			console.logBytes(abi.encode(
+				amountsToReserve[i],
+				depositVaults[vaultIndexesToReserve[i]].btcExchangeRate,
+				depositVaults[vaultIndexesToReserve[i]].btcPayoutLockingScript
+			));
+			console.log("Vault Data [Decoded] ");
+			console.log("amountsToReserve");
+			console.log(amountsToReserve[i]);
+			console.log("btcExchangeRate");
+			console.log(depositVaults[vaultIndexesToReserve[i]].btcExchangeRate);
+			console.log("btcPayoutLockingScript");
+			console.logBytes32(depositVaults[vaultIndexesToReserve[i]].btcPayoutLockingScript);
+
 			// [0] retrieve deposit vault
 			vaultHash = sha256(abi.encode(
 				amountsToReserve[i],

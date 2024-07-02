@@ -231,7 +231,7 @@ contract RiftExchangeTest is Test {
         deal(address(weth), testAddress, 1000000e18);
         vm.startPrank(testAddress);
         weth.approve(address(riftExchange), 5 ether);
-        bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
+        bytes32 btcPayoutLockingScript = hex"0014841b80d2cc75f5345c482af96294d04fdd66b2b7";
         uint64 btcExchangeRate = 69;
         uint192 depositAmount = 5 ether;
 
