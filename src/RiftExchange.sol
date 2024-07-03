@@ -78,10 +78,10 @@ contract RiftExchange is BlockHashStorage {
         uint256 initialBalance;
         uint192 unreservedBalance; // true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
         /*
-			2⁶⁴ = max rate container
-		   -----                     = 1.84 x 10¹¹ max btc per eth rate
-			10⁸ = 1 btc in sats
-		*/
+          2⁶⁴ = max rate container
+          -----                     = 1.84 x 10¹¹ max btc per eth rate
+          10⁸ = 1 btc in sats
+        */
         uint64 btcExchangeRate; // amount of btc per 1 eth, in sats
         bytes32 btcPayoutLockingScript;
     }
