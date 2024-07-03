@@ -401,7 +401,7 @@ contract RiftExchange is BlockHashStorage {
         DEPOSIT_TOKEN.transferFrom(address(this), protocolAddress, protocolFee);
     }
 
-    function unlockLiquidity(
+    function proposeTransactionProof(
         uint256 swapReservationIndex,
         bytes32 btcBlockHash,
         uint32 blockCheckpointHeight,
