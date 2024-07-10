@@ -46,7 +46,7 @@ error StillInChallengePeriod();
 error ReservationNotUnlocked();
 
 contract RiftExchange is BlockHashStorage {
-    uint256 public constant RESERVATION_LOCKUP_PERIOD = 6 hours; // TODO: get longest 6 block confirmation time
+    uint256 public constant RESERVATION_LOCKUP_PERIOD = 8 hours;
     uint256 public constant CHALLENGE_PERIOD = 10 minutes;
     uint16 public constant MAX_DEPOSIT_OUTPUTS = 50;
     uint256 public constant PROOF_GAS_COST = 420_000; // TODO: update to real value
