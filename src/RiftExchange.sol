@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.2;
 
-import {UltraVerifier as TransactionInclusionPlonkVerification} from "./verifiers/TransactionInclusionPlonkVerification.sol";
+import {UltraVerifier as RiftPlonkVerification} from "./verifiers/RiftPlonkVerification.sol";
 import {BlockHashStorage} from "./BlockHashStorage.sol";
 import {console} from "forge-std/console.sol";
 
@@ -112,7 +112,7 @@ contract RiftExchange is BlockHashStorage {
     SwapReservation[] public swapReservations;
     DepositVault[] public depositVaults;
 
-    TransactionInclusionPlonkVerification public immutable verifierContract;
+    RiftPlonkVerification public immutable verifierContract;
     address payable protocolAddress = payable(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
 
     //--------- CONSTRUCTOR ---------//
@@ -125,7 +125,7 @@ contract RiftExchange is BlockHashStorage {
         uint256 minDeposit,
         uint256 maxDeposit
     ) BlockHashStorage(initialCheckpointHeight, initialBlockHash) {
-        verifierContract = TransactionInclusionPlonkVerification(verifierContractAddress);
+        verifierContract = RiftPlonkVerification(verifierContractAddress);
         DEPOSIT_TOKEN = IERC20(depositTokenAddress);
         MIN_DEPOSIT = minDeposit;
         MAX_DEPOSIT = maxDeposit;

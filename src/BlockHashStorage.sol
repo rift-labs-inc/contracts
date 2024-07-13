@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import {HeaderLib} from "./HeaderLib.sol";
-import {UltraVerifier as HeaderStoragePlonkVerifier} from "./verifiers/HeaderStoragePlonkVerification.sol";
 import "forge-std/console.sol";
 
 error InvalidCheckpoint();
