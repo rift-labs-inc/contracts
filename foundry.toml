@@ -24,6 +24,7 @@ include_storage = true
 include_push_bytes = true
 
 [profile.default]
+env = { PRIVATE_KEY = "${PRIVATE_KEY}" }
 src = "src"
 test = "tests"
 script = "scripts"
@@ -78,3 +79,4 @@ path = "./"
 [profile.default.rpc_endpoints]
 optimism = "https://optimism.alchemyapi.io/v2/..."
 mainnet = "${RPC_MAINNET}"
+sepolia = "${SEPOLIA_RPC_URL}"

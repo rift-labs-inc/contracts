@@ -5,36 +5,29 @@ import {HeaderLib} from "./HeaderLib.sol";
 import {UltraVerifier as HeaderStoragePlonkVerifier} from "./verifiers/HeaderStoragePlonkVerification.sol";
 import "forge-std/console.sol";
 
-error InvalidCheckpoint();
+error InvalidSafeBlock();
 error BlockDoesNotExist();
 
 contract BlockHashStorage {
     mapping(uint256 => bytes32) blockchain; // block height => block hash
     uint256 public currentHeight;
 
-    constructor(uint256 checkpoint_height, bytes32 blockHash) {
-        currentHeight = checkpoint_height;
-        blockchain[checkpoint_height] = blockHash;
+    constructor(uint256 safeBlock_height, bytes32 blockHash) {
+        currentHeight = safeBlock_height;
+        blockchain[safeBlock_height] = blockHash;
     }
 
-    function addBlock(
-        uint256 blockCheckpointHeight,
-        uint256 blockHeight,
-        bytes32 blockHash
-    ) public {
+    function addBlock(uint256 safeBlockHeight, uint256 blockHeight, bytes32 blockHash) public {
         // TODO: make this interanal after testing
-        // [0] validate checkpoint height
+        // [0] validate safeBlock height
         uint _currentHeight = currentHeight;
-        if (blockCheckpointHeight > _currentHeight) {
-            revert InvalidCheckpoint();
+        if (safeBlockHeight > _currentHeight) {
+            revert InvalidSafeBlock();
         }
 
         // [1] check for new proposed longest chain and clear orphaned blocks
-        if (
-            blockCheckpointHeight < _currentHeight &&
-            blockHeight >= _currentHeight
-        ) {
-            for (uint256 i = blockCheckpointHeight; i < _currentHeight; i++) {
+        if (safeBlockHeight < _currentHeight && blockHeight >= _currentHeight) {
+            for (uint256 i = safeBlockHeight; i < _currentHeight; i++) {
                 // check if block exists in mapping
                 if (blockchain[i] != bytes32(0)) {
                     // clear orphaned block
