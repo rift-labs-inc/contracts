@@ -379,18 +379,22 @@ contract RiftExchange is BlockHashStorage {
         return data[31];
     }
 
+    struct ProofPublicInputs {
+        bytes32 bitcoinTxId;
+        bytes32 lpReservationHash;
+        bytes32 orderNonce;
+        uint64 expectedPayout;
+        uint64 lpCount;
+        bytes32 confirmationBlockHash;
+        bytes32 proposedBlockHash;
+        bytes32 safeBlockHash;
+        bytes32 retargetBlockHash;
+        uint64 safeBlockHeight;
+        uint64 blockHeightDelta;
+    }
+
     function buildProofPublicInputs(
-        bytes32 bitcoinTxId,
-        bytes32 lpReservationHash,
-        bytes32 orderNonce,
-        uint64 expectedPayout,
-        uint64 lpCount,
-        bytes32 confirmationBlockHash,
-        bytes32 proposedBlockHash,
-        bytes32 safeBlockHash,
-        bytes32 retargetBlockHash,
-        uint64 safeBlockHeight,
-        uint64 blockHeightDelta
+      ProofPublicInputs memory inputs
     ) public pure returns (bytes32[] memory) {
         // txn_hash_encoded: pub [Field; 2],
         // lp_reservation_hash_encoded: pub [Field; 2],
@@ -404,24 +408,24 @@ contract RiftExchange is BlockHashStorage {
         // safe_block_height: pub u64,
         // block_height_delta: pub u64,
         bytes32[] memory publicInputs = new bytes32[](18);
-        publicInputs[0] = hashToFieldUpper(bitcoinTxId);
-        publicInputs[1] = hashToFieldLower(bitcoinTxId);
-        publicInputs[2] = hashToFieldUpper(lpReservationHash);
-        publicInputs[3] = hashToFieldLower(lpReservationHash);
-        publicInputs[4] = hashToFieldUpper(orderNonce);
-        publicInputs[5] = hashToFieldLower(orderNonce);
-        publicInputs[6] = hashToFieldUpper(confirmationBlockHash);
-        publicInputs[7] = hashToFieldLower(confirmationBlockHash);
-        publicInputs[8] = hashToFieldUpper(proposedBlockHash);
-        publicInputs[9] = hashToFieldLower(proposedBlockHash);
-        publicInputs[10] = hashToFieldUpper(safeBlockHash);
-        publicInputs[11] = hashToFieldLower(safeBlockHash);
-        publicInputs[12] = hashToFieldUpper(retargetBlockHash);
-        publicInputs[13] = hashToFieldLower(retargetBlockHash);
-        publicInputs[14] = bytes32(bytes8(expectedPayout));
-        publicInputs[15] = bytes32(bytes8(lpCount));
-        publicInputs[16] = bytes32(bytes8(safeBlockHeight));
-        publicInputs[17] = bytes32(bytes8(blockHeightDelta));
+        publicInputs[0] = hashToFieldUpper(inputs.bitcoinTxId);
+        publicInputs[1] = hashToFieldLower(inputs.bitcoinTxId);
+        publicInputs[2] = hashToFieldUpper(inputs.lpReservationHash);
+        publicInputs[3] = hashToFieldLower(inputs.lpReservationHash);
+        publicInputs[4] = hashToFieldUpper(inputs.orderNonce);
+        publicInputs[5] = hashToFieldLower(inputs.orderNonce);
+        publicInputs[6] = hashToFieldUpper(inputs.confirmationBlockHash);
+        publicInputs[7] = hashToFieldLower(inputs.confirmationBlockHash);
+        publicInputs[8] = hashToFieldUpper(inputs.proposedBlockHash);
+        publicInputs[9] = hashToFieldLower(inputs.proposedBlockHash);
+        publicInputs[10] = hashToFieldUpper(inputs.safeBlockHash);
+        publicInputs[11] = hashToFieldLower(inputs.safeBlockHash);
+        publicInputs[12] = hashToFieldUpper(inputs.retargetBlockHash);
+        publicInputs[13] = hashToFieldLower(inputs.retargetBlockHash);
+        publicInputs[14] = bytes32(bytes8(inputs.expectedPayout));
+        publicInputs[15] = bytes32(bytes8(inputs.lpCount));
+        publicInputs[16] = bytes32(bytes8(inputs.safeBlockHeight));
+        publicInputs[17] = bytes32(bytes8(inputs.blockHeightDelta));
         return publicInputs;
     }
 
@@ -439,7 +443,8 @@ contract RiftExchange is BlockHashStorage {
         SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
 
         // build proof public inputs
-        bytes32[] memory publicInputs = buildProofPublicInputs({
+        bytes32[] memory publicInputs = buildProofPublicInputs(
+          ProofPublicInputs({
             bitcoinTxId: bitcoinTxId,
             lpReservationHash: swapReservation.lpReservationHash,
             orderNonce: swapReservation.nonce,
@@ -451,9 +456,10 @@ contract RiftExchange is BlockHashStorage {
             retargetBlockHash: retargetBlockHash,
             safeBlockHeight: safeBlockHeight,
             blockHeightDelta: proposedBlockHeight - safeBlockHeight
-        });
+          })
+        );
 
-        // TODO: [1] verify proof (will revert if invalid)
+        // [1] verify proof (will revert if invalid)
         verifierContract.verify(proof, publicInputs);
 
         // [2] add verified block to block header storage contract
