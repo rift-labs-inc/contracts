@@ -275,11 +275,6 @@ contract RiftExchange is BlockHashStorage {
             combinedAmountsToReserve += amountsToReserve[i];
         }
 
-        // ensure combined amounts to reserve is equal to total swap amount
-        if (combinedAmountsToReserve != totalSwapAmount) {
-            revert InvalidOrder();
-        }
-
         // [1] calculate fees
         uint protocolFee = (totalSwapAmount * (protocolFeeBP / 10_000));
         uint proverFee = proverReward + ((PROOF_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
