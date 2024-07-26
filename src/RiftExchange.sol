@@ -268,7 +268,7 @@ contract RiftExchange is BlockHashStorage {
         uint256 totalSwapAmount, // TODO: update this to be and check whats good
         address ethPayoutAddress,
         uint256[] memory expiredSwapReservationIndexes
-    ) public {
+    ) public returns(uint256){
         // [0] calculate total amount of ETH the user is attempting to reserve
         uint256 combinedAmountsToReserve = 0;
         for (uint i = 0; i < amountsToReserve.length; i++) {
@@ -364,6 +364,7 @@ contract RiftExchange is BlockHashStorage {
 
         // transfer protocol fee
         DEPOSIT_TOKEN.transferFrom(address(this), protocolAddress, protocolFee);
+        return swapReservations.length-1;
     }
 
     function hashToFieldUpper(bytes32 data) internal pure returns (bytes32) {
