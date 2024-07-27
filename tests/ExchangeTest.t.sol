@@ -54,13 +54,13 @@ contract RiftExchangeTest is Test {
         console.log("testaddress wETH balance: ", weth.balanceOf(testAddress));
 
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
-        uint64 btcExchangeRate = 2557666;
+        uint64 exchangeRate = 2557666;
         uint192 depositAmount = 0.1 ether;
 
         weth.approve(address(riftExchange), depositAmount);
 
         uint256 gasBefore = gasleft();
-        riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, depositAmount, -1);
+        riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
         uint256 gasUsed = gasBefore - gasleft();
         console.log("Gas used for deposit:", gasUsed);
 
@@ -68,7 +68,7 @@ contract RiftExchangeTest is Test {
         RiftExchange.DepositVault memory deposit = riftExchange.getDepositVault(vaultIndex);
 
         assertEq(deposit.initialBalance, depositAmount, "Deposit amount mismatch");
-        assertEq(deposit.btcExchangeRate, btcExchangeRate, "BTC exchange rate mismatch");
+        assertEq(deposit.exchangeRate, exchangeRate, "BTC exchange rate mismatch");
 
         vm.stopPrank();
     }
@@ -81,10 +81,10 @@ contract RiftExchangeTest is Test {
 
         // initial deposit
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
-        uint64 btcExchangeRate = 2557666;
+        uint64 exchangeRate = 2557666;
         uint192 initialDepositAmount = 0.1 ether;
 
-        riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, initialDepositAmount, -1);
+        riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, initialDepositAmount, -1);
 
         // empty deposit vault
         riftExchange.emptyDepositVault(0);
@@ -116,7 +116,7 @@ contract RiftExchangeTest is Test {
             "Overwritten deposit amount should match new deposit amount"
         );
         assertEq(
-            overwrittenDeposit.btcExchangeRate,
+            overwrittenDeposit.exchangeRate,
             newBtcExchangeRate,
             "Overwritten BTC exchange rate should match new rate"
         );
@@ -134,7 +134,7 @@ contract RiftExchangeTest is Test {
         uint256 lastDepositGasCost;
 
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
-        uint64 btcExchangeRate = 2557666;
+        uint64 exchangeRate = 2557666;
         uint192 depositAmount = 500 ether;
         uint256 totalGasUsed = 0;
 
@@ -143,7 +143,7 @@ contract RiftExchangeTest is Test {
         for (uint256 i = 0; i < numDeposits; i++) {
             uint256 gasBefore = gasleft();
 
-            riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, depositAmount, -1);
+            riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
 
             uint256 gasUsed = gasBefore - gasleft(); // Calculate gas used for the operation
             totalGasUsed += gasUsed; // Accumulate total gas used
@@ -190,12 +190,12 @@ contract RiftExchangeTest is Test {
         console.log("Updating BTC exchange rate from", initialBtcExchangeRate, "to", newBtcExchangeRate);
         uint256[] memory empty = new uint256[](0);
         riftExchange.updateExchangeRate(0, 0, newBtcExchangeRate, empty);
-        console.log("NEW BTC EXCHANGE RATE:", riftExchange.getDepositVault(0).btcExchangeRate);
+        console.log("NEW BTC EXCHANGE RATE:", riftExchange.getDepositVault(0).exchangeRate);
 
         // fetch the updated deposit and verify the new exchange rate
         RiftExchange.DepositVault memory updatedDeposit = riftExchange.getDepositVault(0);
         assertEq(
-            updatedDeposit.btcExchangeRate,
+            updatedDeposit.exchangeRate,
             newBtcExchangeRate,
             "BTC exchange rate should be updated to the new value"
         );
@@ -210,13 +210,13 @@ contract RiftExchangeTest is Test {
     //         vm.startPrank(testAddress);
     //         weth.approve(address(riftExchange), 5 ether);
     //         bytes32 btcPayoutLockingScript = hex"0014841b80d2cc75f5345c482af96294d04fdd66b2b7";
-    //         uint64 btcExchangeRate = 69;
+    //         uint64 exchangeRate = 69;
     //         uint192 depositAmount = 5 ether;
 
     //         // deposit liquidity
     //         riftExchange.depositLiquidity(
     //             btcPayoutLockingScript,
-    //             btcExchangeRate,
+    //             exchangeRate,
     //             -1, // no vault index to overwrite
     //             depositAmount,
     //             -1 // no vault index with same exchange rate
@@ -274,11 +274,11 @@ contract RiftExchangeTest is Test {
     //         vm.startPrank(testAddress);
     //         weth.approve(address(riftExchange), 5000000 ether);
     //         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-    //         uint64 btcExchangeRate = 69;
+    //         uint64 exchangeRate = 69;
     //         uint192 depositAmount = 50 ether;
 
     //         // deposit liquidity
-    //         riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, depositAmount, -1);
+    //         riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
 
     //         uint256[] memory vaultIndexesToReserve = new uint256[](1);
     //         vaultIndexesToReserve[0] = 0;
@@ -338,12 +338,12 @@ contract RiftExchangeTest is Test {
 
     //         uint256 maxVaults = 100;
     //         uint192 depositAmount = 500 ether;
-    //         uint64 btcExchangeRate = 69;
+    //         uint64 exchangeRate = 69;
     //         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
 
     //         // create multiple vaults
     //         for (uint256 i = 0; i < maxVaults; i++) {
-    //             riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, depositAmount, -1);
+    //             riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
     //         }
 
     //         // reserve liquidity from varying vaults
@@ -384,10 +384,10 @@ contract RiftExchangeTest is Test {
 
     //         // deposit liquidity
     //         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-    //         uint64 btcExchangeRate = 69;
+    //         uint64 exchangeRate = 69;
     //         uint192 depositAmount = 5 ether;
 
-    //         riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, depositAmount, -1);
+    //         riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
 
     //         // initial reserve liquidity
     //         uint256[] memory vaultIndexesToReserve = new uint256[](1);
@@ -437,8 +437,8 @@ contract RiftExchangeTest is Test {
     //         // [0] initial deposit
     //         uint192 depositAmount = 5 ether;
     //         bytes32 btcPayoutLockingScript = keccak256(abi.encodePacked("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"));
-    //         uint64 btcExchangeRate = 50;
-    //         riftExchange.depositLiquidity(btcPayoutLockingScript, btcExchangeRate, -1, depositAmount, -1);
+    //         uint64 exchangeRate = 50;
+    //         riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
 
     //         // [1] withdraw some of the liquidity
     //         uint256[] memory empty = new uint256[](0);
@@ -487,11 +487,11 @@ contract RiftExchangeTest is Test {
     //             newBtcExchangeRate,
     //             expiredReservationIndexes
     //         );
-    //         console.log("new exchange rate:", riftExchange.getDepositVault(globalVaultIndex).btcExchangeRate);
+    //         console.log("new exchange rate:", riftExchange.getDepositVault(globalVaultIndex).exchangeRate);
 
     //         // verify new exchange rate
     //         RiftExchange.DepositVault memory updatedVault = riftExchange.getDepositVault(globalVaultIndex);
-    //         assertEq(updatedVault.btcExchangeRate, newBtcExchangeRate, "Exchange rate should be updated to the new value.");
+    //         assertEq(updatedVault.exchangeRate, newBtcExchangeRate, "Exchange rate should be updated to the new value.");
 
     //         // Verify failure on zero exchange rate
     //         vm.expectRevert(INVALID_VAULT_UPDATE);
