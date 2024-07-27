@@ -75,12 +75,7 @@ contract RiftExchange is BlockHashStorage {
     struct DepositVault {
         uint256 initialBalance;
         uint192 unreservedBalance; // true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
-        /*
-          2⁶⁴ = max rate container
-          -----                     = 1.84 x 10¹¹ max btc per eth rate
-          10⁸ = 1 btc in sats
-        */
-        uint64 btcExchangeRate; // amount of btc per 1 eth, in sats
+        uint64 btcExchangeRate; // amount of sats per wei (wei/sats)
         bytes22 btcPayoutLockingScript;
     }
 
@@ -393,9 +388,7 @@ contract RiftExchange is BlockHashStorage {
         uint64 blockHeightDelta;
     }
 
-    function buildProofPublicInputs(
-      ProofPublicInputs memory inputs
-    ) public pure returns (bytes32[] memory) {
+    function buildProofPublicInputs(ProofPublicInputs memory inputs) public pure returns (bytes32[] memory) {
         // txn_hash_encoded: pub [Field; 2],
         // lp_reservation_hash_encoded: pub [Field; 2],
         // order_nonce_encoded: pub [Field; 2],
@@ -444,19 +437,19 @@ contract RiftExchange is BlockHashStorage {
 
         // build proof public inputs
         bytes32[] memory publicInputs = buildProofPublicInputs(
-          ProofPublicInputs({
-            bitcoinTxId: bitcoinTxId,
-            lpReservationHash: swapReservation.lpReservationHash,
-            orderNonce: swapReservation.nonce,
-            expectedPayout: uint64(swapReservation.totalSwapAmount),
-            lpCount: uint64(swapReservation.vaultIndexes.length),
-            confirmationBlockHash: confirmationBlockHash,
-            proposedBlockHash: proposedBlockHash,
-            safeBlockHash: getBlockHash(safeBlockHeight),
-            retargetBlockHash: retargetBlockHash,
-            safeBlockHeight: safeBlockHeight,
-            blockHeightDelta: proposedBlockHeight - safeBlockHeight
-          })
+            ProofPublicInputs({
+                bitcoinTxId: bitcoinTxId,
+                lpReservationHash: swapReservation.lpReservationHash,
+                orderNonce: swapReservation.nonce,
+                expectedPayout: uint64(swapReservation.totalSwapAmount),
+                lpCount: uint64(swapReservation.vaultIndexes.length),
+                confirmationBlockHash: confirmationBlockHash,
+                proposedBlockHash: proposedBlockHash,
+                safeBlockHash: getBlockHash(safeBlockHeight),
+                retargetBlockHash: retargetBlockHash,
+                safeBlockHeight: safeBlockHeight,
+                blockHeightDelta: proposedBlockHeight - safeBlockHeight
+            })
         );
 
         // [1] verify proof (will revert if invalid)
