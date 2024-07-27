@@ -75,7 +75,7 @@ contract RiftExchange is BlockHashStorage {
     struct DepositVault {
         uint256 initialBalance;
         uint192 unreservedBalance; // true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
-        uint64 btcExchangeRate; // amount of sats per wei (wei/sats)
+        uint64 exchangeRate; // amount of wei per 1 sat (wei/sats)
         bytes22 btcPayoutLockingScript;
     }
 
@@ -123,13 +123,13 @@ contract RiftExchange is BlockHashStorage {
     //--------- WRITE FUNCTIONS ---------//
     function depositLiquidity(
         bytes22 btcPayoutLockingScript,
-        uint64 btcExchangeRate,
+        uint64 exchangeRate,
         int256 vaultIndexToOverwrite,
         uint192 depositAmount,
         int256 vaultIndexWithSameExchangeRate
     ) public {
         // [0] validate btc exchange rate
-        if (btcExchangeRate == 0) {
+        if (exchangeRate == 0) {
             revert exchangeRateZero();
         }
 
@@ -142,7 +142,7 @@ contract RiftExchange is BlockHashStorage {
         if (vaultIndexWithSameExchangeRate != -1) {
             uint256 vaultIndex = uint(vaultIndexWithSameExchangeRate);
             DepositVault storage vault = depositVaults[vaultIndex];
-            if (vault.btcExchangeRate == btcExchangeRate) {
+            if (vault.exchangeRate == exchangeRate) {
                 vault.unreservedBalance += depositAmount;
             } else {
                 revert InvaidSameExchangeRatevaultIndex();
@@ -161,7 +161,7 @@ contract RiftExchange is BlockHashStorage {
             // [2] overwrite empty vault with new deposit
             emptyVault.initialBalance = depositAmount;
             emptyVault.unreservedBalance = depositAmount;
-            emptyVault.btcExchangeRate = btcExchangeRate;
+            emptyVault.exchangeRate = exchangeRate;
             emptyVault.btcPayoutLockingScript = btcPayoutLockingScript;
         }
         // [4] otherwise, create a new deposit vault if none are empty
@@ -170,7 +170,7 @@ contract RiftExchange is BlockHashStorage {
                 DepositVault({
                     initialBalance: depositAmount,
                     unreservedBalance: depositAmount,
-                    btcExchangeRate: btcExchangeRate,
+                    exchangeRate: exchangeRate,
                     btcPayoutLockingScript: btcPayoutLockingScript
                 })
             );
@@ -186,7 +186,7 @@ contract RiftExchange is BlockHashStorage {
     function updateExchangeRate(
         uint256 globalVaultIndex, // index of vault in depositVaults
         uint256 localVaultIndex, // index of vault in LP's depositVaultIndexes array
-        uint64 newBtcExchangeRate,
+        uint64 newexchangeRate,
         uint256[] memory expiredReservationIndexes
     ) public {
         // ensure msg.sender is vault owner
@@ -195,7 +195,7 @@ contract RiftExchange is BlockHashStorage {
         }
 
         // [0] validate new exchange rate
-        if (newBtcExchangeRate == 0) {
+        if (newexchangeRate == 0) {
             revert InvalidVaultUpdate();
         }
 
@@ -211,7 +211,7 @@ contract RiftExchange is BlockHashStorage {
         }
 
         // [4] update exchange rate
-        vault.btcExchangeRate = newBtcExchangeRate;
+        vault.exchangeRate = newexchangeRate;
     }
 
     function withdrawLiquidity(
@@ -263,11 +263,16 @@ contract RiftExchange is BlockHashStorage {
         uint256 totalSwapAmount, // TODO: update this to be and check whats good
         address ethPayoutAddress,
         uint256[] memory expiredSwapReservationIndexes
-    ) public returns(uint256){
+    ) public {
         // [0] calculate total amount of ETH the user is attempting to reserve
         uint256 combinedAmountsToReserve = 0;
         for (uint i = 0; i < amountsToReserve.length; i++) {
             combinedAmountsToReserve += amountsToReserve[i];
+        }
+
+        // ensure combined amounts to reserve is equal to total swap amount
+        if (combinedAmountsToReserve != totalSwapAmount) {
+            revert InvalidOrder();
         }
 
         // [1] calculate fees
@@ -296,7 +301,7 @@ contract RiftExchange is BlockHashStorage {
             vaultHash = sha256(
                 abi.encode(
                     amountsToReserve[i],
-                    depositVaults[vaultIndexesToReserve[i]].btcExchangeRate,
+                    depositVaults[vaultIndexesToReserve[i]].exchangeRate,
                     depositVaults[vaultIndexesToReserve[i]].btcPayoutLockingScript,
                     vaultHash
                 )
@@ -359,7 +364,6 @@ contract RiftExchange is BlockHashStorage {
 
         // transfer protocol fee
         DEPOSIT_TOKEN.transferFrom(address(this), protocolAddress, protocolFee);
-        return swapReservations.length-1;
     }
 
     function hashToFieldUpper(bytes32 data) internal pure returns (bytes32) {
@@ -370,21 +374,19 @@ contract RiftExchange is BlockHashStorage {
         return data[31];
     }
 
-    struct ProofPublicInputs {
-        bytes32 bitcoinTxId;
-        bytes32 lpReservationHash;
-        bytes32 orderNonce;
-        uint64 expectedPayout;
-        uint64 lpCount;
-        bytes32 confirmationBlockHash;
-        bytes32 proposedBlockHash;
-        bytes32 safeBlockHash;
-        bytes32 retargetBlockHash;
-        uint64 safeBlockHeight;
-        uint64 blockHeightDelta;
-    }
-
-    function buildProofPublicInputs(ProofPublicInputs memory inputs) public pure returns (bytes32[] memory) {
+    function buildProofPublicInputs(
+        bytes32 bitcoinTxId,
+        bytes32 lpReservationHash,
+        bytes32 orderNonce,
+        uint64 expectedPayout,
+        uint64 lpCount,
+        bytes32 confirmationBlockHash,
+        bytes32 proposedBlockHash,
+        bytes32 safeBlockHash,
+        bytes32 retargetBlockHash,
+        uint64 safeBlockHeight,
+        uint64 blockHeightDelta
+    ) public pure returns (bytes32[] memory) {
         // txn_hash_encoded: pub [Field; 2],
         // lp_reservation_hash_encoded: pub [Field; 2],
         // order_nonce_encoded: pub [Field; 2],
@@ -397,24 +399,24 @@ contract RiftExchange is BlockHashStorage {
         // safe_block_height: pub u64,
         // block_height_delta: pub u64,
         bytes32[] memory publicInputs = new bytes32[](18);
-        publicInputs[0] = hashToFieldUpper(inputs.bitcoinTxId);
-        publicInputs[1] = hashToFieldLower(inputs.bitcoinTxId);
-        publicInputs[2] = hashToFieldUpper(inputs.lpReservationHash);
-        publicInputs[3] = hashToFieldLower(inputs.lpReservationHash);
-        publicInputs[4] = hashToFieldUpper(inputs.orderNonce);
-        publicInputs[5] = hashToFieldLower(inputs.orderNonce);
-        publicInputs[6] = hashToFieldUpper(inputs.confirmationBlockHash);
-        publicInputs[7] = hashToFieldLower(inputs.confirmationBlockHash);
-        publicInputs[8] = hashToFieldUpper(inputs.proposedBlockHash);
-        publicInputs[9] = hashToFieldLower(inputs.proposedBlockHash);
-        publicInputs[10] = hashToFieldUpper(inputs.safeBlockHash);
-        publicInputs[11] = hashToFieldLower(inputs.safeBlockHash);
-        publicInputs[12] = hashToFieldUpper(inputs.retargetBlockHash);
-        publicInputs[13] = hashToFieldLower(inputs.retargetBlockHash);
-        publicInputs[14] = bytes32(bytes8(inputs.expectedPayout));
-        publicInputs[15] = bytes32(bytes8(inputs.lpCount));
-        publicInputs[16] = bytes32(bytes8(inputs.safeBlockHeight));
-        publicInputs[17] = bytes32(bytes8(inputs.blockHeightDelta));
+        publicInputs[0] = hashToFieldUpper(bitcoinTxId);
+        publicInputs[1] = hashToFieldLower(bitcoinTxId);
+        publicInputs[2] = hashToFieldUpper(lpReservationHash);
+        publicInputs[3] = hashToFieldLower(lpReservationHash);
+        publicInputs[4] = hashToFieldUpper(orderNonce);
+        publicInputs[5] = hashToFieldLower(orderNonce);
+        publicInputs[6] = hashToFieldUpper(confirmationBlockHash);
+        publicInputs[7] = hashToFieldLower(confirmationBlockHash);
+        publicInputs[8] = hashToFieldUpper(proposedBlockHash);
+        publicInputs[9] = hashToFieldLower(proposedBlockHash);
+        publicInputs[10] = hashToFieldUpper(safeBlockHash);
+        publicInputs[11] = hashToFieldLower(safeBlockHash);
+        publicInputs[12] = hashToFieldUpper(retargetBlockHash);
+        publicInputs[13] = hashToFieldLower(retargetBlockHash);
+        publicInputs[14] = bytes32(bytes8(expectedPayout));
+        publicInputs[15] = bytes32(bytes8(lpCount));
+        publicInputs[16] = bytes32(bytes8(safeBlockHeight));
+        publicInputs[17] = bytes32(bytes8(blockHeightDelta));
         return publicInputs;
     }
 
@@ -432,23 +434,21 @@ contract RiftExchange is BlockHashStorage {
         SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
 
         // build proof public inputs
-        bytes32[] memory publicInputs = buildProofPublicInputs(
-            ProofPublicInputs({
-                bitcoinTxId: bitcoinTxId,
-                lpReservationHash: swapReservation.lpReservationHash,
-                orderNonce: swapReservation.nonce,
-                expectedPayout: uint64(swapReservation.totalSwapAmount),
-                lpCount: uint64(swapReservation.vaultIndexes.length),
-                confirmationBlockHash: confirmationBlockHash,
-                proposedBlockHash: proposedBlockHash,
-                safeBlockHash: getBlockHash(safeBlockHeight),
-                retargetBlockHash: retargetBlockHash,
-                safeBlockHeight: safeBlockHeight,
-                blockHeightDelta: proposedBlockHeight - safeBlockHeight
-            })
-        );
+        bytes32[] memory publicInputs = buildProofPublicInputs({
+            bitcoinTxId: bitcoinTxId,
+            lpReservationHash: swapReservation.lpReservationHash,
+            orderNonce: swapReservation.nonce,
+            expectedPayout: uint64(swapReservation.totalSwapAmount),
+            lpCount: uint64(swapReservation.vaultIndexes.length),
+            confirmationBlockHash: confirmationBlockHash,
+            proposedBlockHash: proposedBlockHash,
+            safeBlockHash: getBlockHash(safeBlockHeight),
+            retargetBlockHash: retargetBlockHash,
+            safeBlockHeight: safeBlockHeight,
+            blockHeightDelta: proposedBlockHeight - safeBlockHeight
+        });
 
-        // [1] verify proof (will revert if invalid)
+        // TODO: [1] verify proof (will revert if invalid)
         verifierContract.verify(proof, publicInputs);
 
         // [2] add verified block to block header storage contract
@@ -578,7 +578,7 @@ contract RiftExchange is BlockHashStorage {
         DepositVault storage vault = depositVaults[vaultIndex];
         vault.initialBalance = 0;
         vault.unreservedBalance = 0;
-        vault.btcExchangeRate = 0;
+        vault.exchangeRate = 0;
         vault.btcPayoutLockingScript = "";
     }
 }
