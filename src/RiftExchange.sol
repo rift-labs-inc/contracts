@@ -260,7 +260,6 @@ contract RiftExchange is BlockHashStorage {
     function reserveLiquidity(
         uint256[] memory vaultIndexesToReserve,
         uint192[] memory amountsToReserve,
-        uint256 totalSwapAmount, // TODO: update this to be and check whats good
         address ethPayoutAddress,
         uint256[] memory expiredSwapReservationIndexes
     ) public {
@@ -271,16 +270,11 @@ contract RiftExchange is BlockHashStorage {
         }
 
         // [1] calculate fees
-        uint protocolFee = (totalSwapAmount * (protocolFeeBP / 10_000));
+        uint protocolFee = (combinedAmountsToReserve * (protocolFeeBP / 10_000));
         uint proverFee = proverReward + ((PROOF_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
         uint releaserFee = releaserReward + ((RELEASE_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
         // TODO: get historical priority fee and potentially add it ^
         //uint256 totalFees = (proverFee + protocolFee + releaserFee);
-
-        // [1] verify total swap amount is enough to cover fees
-        if (totalSwapAmount < (proverFee + protocolFee + releaserFee)) {
-            revert ReservationAmountTooLow();
-        }
 
         // [3] verify proposed expired swap reservation indexes
         verifyExpiredReservations(expiredSwapReservationIndexes);
@@ -320,7 +314,7 @@ contract RiftExchange is BlockHashStorage {
             swapReservationToOverwrite.confirmationBlockHeight = 0;
             swapReservationToOverwrite.unlockTimestamp = 0;
             swapReservationToOverwrite.prepaidFeeAmount = int256(proverFee + releaserFee);
-            swapReservationToOverwrite.totalSwapAmount = totalSwapAmount;
+            swapReservationToOverwrite.totalSwapAmount = combinedAmountsToReserve;
             swapReservationToOverwrite.nonce = keccak256(
                 abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length) // TODO: fully audit nonce attack vector
             );
@@ -337,7 +331,7 @@ contract RiftExchange is BlockHashStorage {
                     reservationTimestamp: uint32(block.timestamp),
                     confirmationBlockHeight: 0,
                     unlockTimestamp: 0,
-                    totalSwapAmount: totalSwapAmount,
+                    totalSwapAmount: combinedAmountsToReserve,
                     prepaidFeeAmount: int256(proverFee + releaserFee),
                     nonce: keccak256(
                         abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length)
