@@ -356,11 +356,11 @@ contract RiftExchange is BlockHashStorage {
     }
 
     function hashToFieldUpper(bytes32 data) internal pure returns (bytes32) {
-        return (data >> 8) << 8;
+        return bytes32(uint256(data) / 256);
     }
 
     function hashToFieldLower(bytes32 data) internal pure returns (bytes32) {
-        return data[31];
+        return bytes32(uint256(data) & 0xFF);
     }
 
     struct ProofPublicInputs {
@@ -379,17 +379,6 @@ contract RiftExchange is BlockHashStorage {
     }
 
     function buildProofPublicInputs(ProofPublicInputs memory inputs) public pure returns (bytes32[] memory) {
-        // txn_hash_encoded: pub [Field; 2],
-        // lp_reservation_hash_encoded: pub [Field; 2],
-        // order_nonce_encoded: pub [Field; 2],
-        // expected_payout: pub u64,
-        // lp_count: pub u64,
-        // confirmation_block_hash_encoded: pub [Field; 2],
-        // proposed_block_hash_encoded: pub [Field; 2],
-        // safe_block_hash_encoded: pub [Field; 2],
-        // retarget_block_hash_encoded: pub [Field; 2],
-        // safe_block_height: pub u64,
-        // block_height_delta: pub u64,
         bytes32[] memory publicInputs = new bytes32[](34);
         publicInputs[0] = hashToFieldUpper(inputs.bitcoinTxId);
         publicInputs[1] = hashToFieldLower(inputs.bitcoinTxId);
@@ -397,18 +386,18 @@ contract RiftExchange is BlockHashStorage {
         publicInputs[3] = hashToFieldLower(inputs.lpReservationHash);
         publicInputs[4] = hashToFieldUpper(inputs.orderNonce);
         publicInputs[5] = hashToFieldLower(inputs.orderNonce);
-        publicInputs[6] = hashToFieldUpper(inputs.confirmationBlockHash);
-        publicInputs[7] = hashToFieldLower(inputs.confirmationBlockHash);
-        publicInputs[8] = hashToFieldUpper(inputs.proposedBlockHash);
-        publicInputs[9] = hashToFieldLower(inputs.proposedBlockHash);
-        publicInputs[10] = hashToFieldUpper(inputs.safeBlockHash);
-        publicInputs[11] = hashToFieldLower(inputs.safeBlockHash);
-        publicInputs[12] = hashToFieldUpper(inputs.retargetBlockHash);
-        publicInputs[13] = hashToFieldLower(inputs.retargetBlockHash);
-        publicInputs[14] = bytes32(bytes8(inputs.expectedPayout));
-        publicInputs[15] = bytes32(bytes8(inputs.lpCount));
-        publicInputs[16] = bytes32(bytes8(inputs.safeBlockHeight));
-        publicInputs[17] = bytes32(bytes8(inputs.blockHeightDelta));
+        publicInputs[8] = hashToFieldUpper(inputs.confirmationBlockHash);
+        publicInputs[6] = bytes32(uint256(inputs.expectedPayout));
+        publicInputs[7] = bytes32(uint256(inputs.lpCount));
+        publicInputs[9] = hashToFieldLower(inputs.confirmationBlockHash);
+        publicInputs[10] = hashToFieldUpper(inputs.proposedBlockHash);
+        publicInputs[11] = hashToFieldLower(inputs.proposedBlockHash);
+        publicInputs[12] = hashToFieldUpper(inputs.safeBlockHash);
+        publicInputs[13] = hashToFieldLower(inputs.safeBlockHash);
+        publicInputs[14] = hashToFieldUpper(inputs.retargetBlockHash);
+        publicInputs[15] = hashToFieldLower(inputs.retargetBlockHash);
+        publicInputs[16] = bytes32(uint256(inputs.safeBlockHeight));
+        publicInputs[17] = bytes32(uint256(inputs.blockHeightDelta));
         for (uint i = 0; i < 16; i++) {
             publicInputs[18 + i] = inputs.aggregation_object[i];
         }
@@ -428,7 +417,6 @@ contract RiftExchange is BlockHashStorage {
     ) public {
         // [0] retrieve swap order
         SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
-
         // build proof public inputs
         bytes32[] memory publicInputs = buildProofPublicInputs(
             ProofPublicInputs({
@@ -446,6 +434,10 @@ contract RiftExchange is BlockHashStorage {
                 aggregation_object: aggregation_object
             })
         );
+        console.log("ProofPublicInputs");
+        for (uint i = 0; i < publicInputs.length; i++) {
+            console.logBytes32(publicInputs[i]);
+        }
 
         // TODO: [1] verify proof (will revert if invalid)
         verifierContract.verify(proof, publicInputs);
@@ -529,11 +521,11 @@ contract RiftExchange is BlockHashStorage {
         return depositVaults[depositIndex].unreservedBalance;
     }
 
-    function getSwapReservation(uint256 reservationIndex) public view returns (SwapReservation memory) {
+    function getReservation(uint256 reservationIndex) public view returns (SwapReservation memory) {
         return swapReservations[reservationIndex];
     }
 
-    function getSwapReservationsLength() public view returns (uint256) {
+    function getReservationLength() public view returns (uint256) {
         return swapReservations.length;
     }
 
