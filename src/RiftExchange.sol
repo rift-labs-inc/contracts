@@ -529,11 +529,11 @@ contract RiftExchange is BlockHashStorage {
         return depositVaults[depositIndex].unreservedBalance;
     }
 
-    function getReservation(uint256 reservationIndex) public view returns (SwapReservation memory) {
+    function getSwapReservation(uint256 reservationIndex) public view returns (SwapReservation memory) {
         return swapReservations[reservationIndex];
     }
 
-    function getReservationLength() public view returns (uint256) {
+    function getSwapReservationsLength() public view returns (uint256) {
         return swapReservations.length;
     }
 
