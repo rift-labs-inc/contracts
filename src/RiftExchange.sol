@@ -375,6 +375,7 @@ contract RiftExchange is BlockHashStorage {
         bytes32 retargetBlockHash;
         uint64 safeBlockHeight;
         uint64 blockHeightDelta;
+        bytes32[16] aggregation_object;
     }
 
     function buildProofPublicInputs(ProofPublicInputs memory inputs) public pure returns (bytes32[] memory) {
@@ -389,7 +390,7 @@ contract RiftExchange is BlockHashStorage {
         // retarget_block_hash_encoded: pub [Field; 2],
         // safe_block_height: pub u64,
         // block_height_delta: pub u64,
-        bytes32[] memory publicInputs = new bytes32[](18);
+        bytes32[] memory publicInputs = new bytes32[](34);
         publicInputs[0] = hashToFieldUpper(inputs.bitcoinTxId);
         publicInputs[1] = hashToFieldLower(inputs.bitcoinTxId);
         publicInputs[2] = hashToFieldUpper(inputs.lpReservationHash);
@@ -408,6 +409,9 @@ contract RiftExchange is BlockHashStorage {
         publicInputs[15] = bytes32(bytes8(inputs.lpCount));
         publicInputs[16] = bytes32(bytes8(inputs.safeBlockHeight));
         publicInputs[17] = bytes32(bytes8(inputs.blockHeightDelta));
+        for (uint i = 0; i < 16; i++) {
+            publicInputs[18 + i] = inputs.aggregation_object[i];
+        }
         return publicInputs;
     }
 
@@ -419,6 +423,7 @@ contract RiftExchange is BlockHashStorage {
         uint32 safeBlockHeight,
         uint256 swapReservationIndex,
         uint64 proposedBlockHeight,
+        bytes32[16] memory aggregation_object,
         bytes memory proof
     ) public {
         // [0] retrieve swap order
@@ -437,7 +442,8 @@ contract RiftExchange is BlockHashStorage {
                 safeBlockHash: getBlockHash(safeBlockHeight),
                 retargetBlockHash: retargetBlockHash,
                 safeBlockHeight: safeBlockHeight,
-                blockHeightDelta: proposedBlockHeight - safeBlockHeight
+                blockHeightDelta: proposedBlockHeight - safeBlockHeight,
+                aggregation_object: aggregation_object
             })
         );
 
