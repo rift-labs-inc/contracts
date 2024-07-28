@@ -423,13 +423,12 @@ contract RiftExchange is BlockHashStorage {
         uint32 safeBlockHeight,
         uint256 swapReservationIndex,
         uint64 proposedBlockHeight,
-        bytes32[] memory aggregation_object,
+        bytes32[16] memory aggregation_object,
         bytes memory proof
     ) public {
         // [0] retrieve swap order
         SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
 
-        /*
         // build proof public inputs
         bytes32[] memory publicInputs = buildProofPublicInputs(
             ProofPublicInputs({
@@ -447,10 +446,9 @@ contract RiftExchange is BlockHashStorage {
                 aggregation_object: aggregation_object
             })
         );
-        */
 
         // TODO: [1] verify proof (will revert if invalid)
-        verifierContract.verify(proof, aggregation_object);
+        verifierContract.verify(proof, publicInputs);
 
         // [2] add verified block to block header storage contract
         addBlock(safeBlockHeight, proposedBlockHeight, proposedBlockHash);
