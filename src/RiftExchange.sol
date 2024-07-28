@@ -225,11 +225,13 @@ contract RiftExchange is BlockHashStorage {
             revert NotVaultOwner();
         }
 
+        /*
         console.log("vaultIndex: ", globalVaultIndex);
         console.log(
             "liquidityProviders[msg.sender].depositVaultIndexes[vaultIndex]: ",
             liquidityProviders[msg.sender].depositVaultIndexes[globalVaultIndex]
         );
+        */
 
         // clean up dead swap reservations
         cleanUpDeadSwapReservations(expiredReservationIndexes);
@@ -248,11 +250,11 @@ contract RiftExchange is BlockHashStorage {
         }
 
         // [3] withdraw funds to LP
-        console.log("unreservedBalance before: ", vault.unreservedBalance);
+        //console.log("unreservedBalance before: ", vault.unreservedBalance);
         vault.unreservedBalance -= amountToWithdraw;
-        console.log("unreservedBalance after: ", vault.unreservedBalance);
-        console.log("amountToWithdraw: ", amountToWithdraw);
-        console.log("contract balance: ", DEPOSIT_TOKEN.balanceOf(address(this)));
+        //console.log("unreservedBalance after: ", vault.unreservedBalance);
+        //console.log("amountToWithdraw: ", amountToWithdraw);
+        //console.log("contract balance: ", DEPOSIT_TOKEN.balanceOf(address(this)));
 
         DEPOSIT_TOKEN.transfer(msg.sender, amountToWithdraw);
     }
@@ -434,10 +436,12 @@ contract RiftExchange is BlockHashStorage {
                 aggregation_object: aggregation_object
             })
         );
+        /*
         console.log("ProofPublicInputs");
         for (uint i = 0; i < publicInputs.length; i++) {
             console.logBytes32(publicInputs[i]);
         }
+        */
 
         // TODO: [1] verify proof (will revert if invalid)
         verifierContract.verify(proof, publicInputs);
@@ -536,7 +540,7 @@ contract RiftExchange is BlockHashStorage {
         for (uint i = 0; i < expiredReservationIndexes.length; i++) {
             // [0] verify reservations are expired
             verifyExpiredReservations(expiredReservationIndexes);
-            console.log("expiredReservationIndexes[i]: ", expiredReservationIndexes[i]);
+            //console.log("expiredReservationIndexes[i]: ", expiredReservationIndexes[i]);
 
             // [1] extract reservation
             SwapReservation storage expiredSwapReservation = swapReservations[expiredReservationIndexes[i]];
