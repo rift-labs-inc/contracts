@@ -74,7 +74,7 @@ contract RiftExchange is BlockHashStorage {
 
     struct DepositVault {
         uint256 initialBalance;
-        uint192 unreservedBalance; // true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
+        uint192 unreservedBalance; // in wei - true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
         uint64 exchangeRate; // amount of wei per 1 sat (wei/sats)
         bytes22 btcPayoutLockingScript;
     }
