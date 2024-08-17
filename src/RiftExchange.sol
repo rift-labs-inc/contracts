@@ -4,6 +4,7 @@ pragma solidity ^0.8.2;
 import {UltraVerifier as RiftPlonkVerification} from "./verifiers/RiftPlonkVerification.sol";
 import {BlockHashStorage} from "./BlockHashStorage.sol";
 import {console} from "forge-std/console.sol";
+import {Ownable} from "./helpers/Ownable.sol";
 
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
@@ -13,6 +14,8 @@ interface IERC20 {
     function balanceOf(address account) external view returns (uint256);
 
     function allowance(address owner, address spender) external view returns (uint256);
+
+    function decimals() external view returns (uint8);
 }
 
 error DepositTooLow();
@@ -45,7 +48,7 @@ error InvalidUpdateWithActiveReservations();
 error StillInChallengePeriod();
 error ReservationNotUnlocked();
 
-contract RiftExchange is BlockHashStorage {
+contract RiftExchange is BlockHashStorage, Ownable {
     uint256 public constant RESERVATION_LOCKUP_PERIOD = 8 hours;
     uint256 public constant CHALLENGE_PERIOD = 10 minutes;
     uint16 public constant MAX_DEPOSIT_OUTPUTS = 50;
@@ -53,15 +56,13 @@ contract RiftExchange is BlockHashStorage {
     uint256 public constant RELEASE_GAS_COST = 210_000; // TODO: update to real value
     uint256 public constant MIN_ORDER_GAS_MULTIPLIER = 2;
     uint8 public constant SAMPLING_SIZE = 10;
-    IERC20 public immutable DEPOSIT_TOKEN;
 
-    // 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 - testing header storage contract address
-    // 0x007ab3f410ceba1a111b100de2f76a8154b80126cda3f8cab47728d2f8cd0d6d - testing btc payout address
+    IERC20 public immutable DEPOSIT_TOKEN;
+    uint8 public immutable TOKEN_DECIMALS;
 
     uint8 public protocolFeeBP = 100; // 100 bp = 1%
-    uint8 public treasuryFee = 0;
-    uint256 public proverReward = 0.002 ether;
-    uint256 public releaserReward = 0.0002 ether;
+    uint256 public proverReward;
+    uint256 public releaserReward;
 
     struct LPunreservedBalanceChange {
         uint256 vaultIndex;
@@ -73,9 +74,9 @@ contract RiftExchange is BlockHashStorage {
     }
 
     struct DepositVault {
-        uint256 initialBalance;
-        uint192 unreservedBalance; // in wei - true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
-        uint64 exchangeRate; // amount of wei per 1 sat (wei/sats)
+        uint256 initialBalance; // in token's smallest unit (wei, μUSDT, etc)
+        uint192 unreservedBalance; // true balance in token's smallest unit = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
+        uint64 exchangeRate; // amount of token's smallest unit per 1 sat
         bytes22 btcPayoutLockingScript;
     }
 
@@ -114,10 +115,22 @@ contract RiftExchange is BlockHashStorage {
         uint256 initialCheckpointHeight,
         bytes32 initialBlockHash,
         address verifierContractAddress,
-        address depositTokenAddress
-    ) BlockHashStorage(initialCheckpointHeight, initialBlockHash) {
+        address depositTokenAddress,
+        uint256 _proverReward,
+        uint256 _releaserReward,
+        address payable _protocolAddress
+    ) BlockHashStorage(initialCheckpointHeight, initialBlockHash) Ownable(msg.sender) {
+        // [0] set verifier contract and deposit token
         verifierContract = RiftPlonkVerification(verifierContractAddress);
         DEPOSIT_TOKEN = IERC20(depositTokenAddress);
+        TOKEN_DECIMALS = DEPOSIT_TOKEN.decimals();
+
+        // [1] set rewards based on underlying token
+        proverReward = _proverReward; // in smallest token unit
+        releaserReward = _releaserReward; // in smallest token unit
+
+        // [2] set protocol address
+        protocolAddress = _protocolAddress;
     }
 
     //--------- WRITE FUNCTIONS ---------//
@@ -505,6 +518,22 @@ contract RiftExchange is BlockHashStorage {
 
         // [10] mark swap reservation as completed
         swapReservation.state = ReservationState.Completed;
+    }
+
+    function updateRewards(uint256 newProverReward, uint256 newReleaserReward) public onlyOwner {
+        // [0] update rewards in smallest token unit
+        proverReward = newProverReward;
+        releaserReward = newReleaserReward;
+    }
+
+    function updateProtocolAddress(address payable newProtocolAddress) public onlyOwner {
+        // [0] update protocol address
+        protocolAddress = newProtocolAddress;
+    }
+
+    function updateProtocolFee(uint8 newProtocolFeeBP) public onlyOwner {
+        // [0] update protocol fee in basis points
+        protocolFeeBP = newProtocolFeeBP;
     }
 
     //--------- READ FUNCTIONS ---------//
