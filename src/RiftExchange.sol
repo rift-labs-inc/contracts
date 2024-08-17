@@ -4,7 +4,7 @@ pragma solidity ^0.8.2;
 import {UltraVerifier as RiftPlonkVerification} from "./verifiers/RiftPlonkVerification.sol";
 import {BlockHashStorage} from "./BlockHashStorage.sol";
 import {console} from "forge-std/console.sol";
-import {Ownable} from "./helpers/Ownable.sol";
+import {Owned} from "../lib/solmate/src/auth/Owned.sol";
 
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
@@ -48,7 +48,7 @@ error InvalidUpdateWithActiveReservations();
 error StillInChallengePeriod();
 error ReservationNotUnlocked();
 
-contract RiftExchange is BlockHashStorage, Ownable {
+contract RiftExchange is BlockHashStorage, Owned {
     uint256 public constant RESERVATION_LOCKUP_PERIOD = 8 hours;
     uint256 public constant CHALLENGE_PERIOD = 10 minutes;
     uint16 public constant MAX_DEPOSIT_OUTPUTS = 50;
@@ -118,8 +118,9 @@ contract RiftExchange is BlockHashStorage, Ownable {
         address depositTokenAddress,
         uint256 _proverReward,
         uint256 _releaserReward,
-        address payable _protocolAddress
-    ) BlockHashStorage(initialCheckpointHeight, initialBlockHash) Ownable(msg.sender) {
+        address payable _protocolAddress,
+        address _owner
+    ) BlockHashStorage(initialCheckpointHeight, initialBlockHash) Owned(_owner) {
         // [0] set verifier contract and deposit token
         verifierContract = RiftPlonkVerification(verifierContractAddress);
         DEPOSIT_TOKEN = IERC20(depositTokenAddress);
