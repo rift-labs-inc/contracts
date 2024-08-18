@@ -5,11 +5,21 @@ import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {RiftExchange} from "../src/RiftExchange.sol";
 import {WETH} from "solmate/tokens/WETH.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+
+// Mock USDT contract
+contract MockUSDT is ERC20 {
+    constructor() ERC20("Tether USD", "USDT", 6) {} // USDT has 6 decimals
+
+    function mint(address to, uint256 amount) public {
+        _mint(to, amount);
+    }
+}
 
 contract RiftExchangeTest is Test {
     RiftExchange riftExchange;
-    WETH weth;
-    address testAddress = address(0x123);
+    MockUSDT usdt;
+    address testAddress = address(0x69696969);
     address lp1 = address(0x69);
     address lp2 = address(0x69420);
     address lp3 = address(0x6969);
@@ -34,19 +44,20 @@ contract RiftExchangeTest is Test {
         uint256 initialCheckpointHeight = 845690;
         address verifierContractAddress = address(0x123);
 
-        weth = new WETH();
+        usdt = new MockUSDT();
 
-        uint256 proverReward = 5 * 10 ** 6;
-        uint256 releaserReward = 2 * 10 ** 6;
+        uint256 proverReward = 5 * 10 ** 6; // 5 USDT
+        uint256 releaserReward = 2 * 10 ** 6; // 2 USDT
         address payable protocolAddress = payable(address(this));
 
         riftExchange = new RiftExchange(
             initialCheckpointHeight,
             initialBlockHash,
             verifierContractAddress,
-            address(weth),
+            address(usdt),
             proverReward,
             releaserReward,
+            protocolAddress,
             protocolAddress
         );
     }
@@ -54,17 +65,17 @@ contract RiftExchangeTest is Test {
     //--------- DEPOSIT TESTS ---------//
 
     function testDepositLiquidity() public {
-        deal(address(weth), testAddress, 1000000e18);
+        deal(address(usdt), testAddress, 1_000_000_000_000_000e6); // Mint USDT (6 decimals)
         vm.startPrank(testAddress);
 
         console.log("Starting deposit liquidity...");
-        console.log("testaddress wETH balance: ", weth.balanceOf(testAddress));
+        console.log("testaddress USDT balance: ", usdt.balanceOf(testAddress));
 
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 exchangeRate = 2557666;
-        uint192 depositAmount = 0.1 ether;
+        uint256 depositAmount = 1_000_000_000_000_000e6; // 1b USDT
 
-        weth.approve(address(riftExchange), depositAmount);
+        usdt.approve(address(riftExchange), depositAmount);
 
         uint256 gasBefore = gasleft();
         riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
@@ -74,36 +85,47 @@ contract RiftExchangeTest is Test {
         uint256 vaultIndex = riftExchange.getDepositVaultsLength() - 1;
         RiftExchange.DepositVault memory deposit = riftExchange.getDepositVault(vaultIndex);
 
-        assertEq(deposit.initialBalance, depositAmount, "Deposit amount mismatch");
+        // Calculate the expected buffered amount (from 6 to 18 decimals)
+        uint256 expectedBufferedAmount = depositAmount * 1e12; // Multiply by 10^(18-6) to get 18 decimal precision
+
+        assertEq(
+            deposit.initialBalance,
+            expectedBufferedAmount,
+            "Deposit amount mismatch (should be buffered to 18 decimals)"
+        );
         assertEq(deposit.exchangeRate, exchangeRate, "BTC exchange rate mismatch");
+
+        // Optional: Check if the unbuffered amount matches the original deposit
+        uint256 unbufferedAmount = deposit.initialBalance / 1e12; // Divide by 10^(18-6) to get back to 6 decimal precision
+        assertEq(unbufferedAmount, depositAmount, "Unbuffered deposit amount should match original deposit");
 
         vm.stopPrank();
     }
 
     function testDepositOverwrite() public {
         // setup
-        deal(address(weth), testAddress, 10 ether);
+        deal(address(usdt), testAddress, 1_000_000_000_000_000e6);
         vm.startPrank(testAddress);
-        weth.approve(address(riftExchange), 10 ether);
 
         // initial deposit
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 exchangeRate = 2557666;
-        uint192 initialDepositAmount = 0.1 ether;
+        uint256 initialDepositAmount = 1_000_000e6; // 1m USDT
+        usdt.approve(address(riftExchange), 1_000_000_000_000_000e6);
 
         riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, initialDepositAmount, -1);
 
         // empty deposit vault
+        console.log("vault at index 0 before overwrite: ", riftExchange.getDepositVault(0).initialBalance);
         riftExchange.emptyDepositVault(0);
 
         // overwrite deposit vault
-        uint192 newDepositAmount = 2.4 ether;
+        uint256 newDepositAmount = 100e6; // 2.4 USDT
         uint64 newBtcExchangeRate = 75;
         int256 vaultIndexToOverwrite = 0;
 
         console.log("TOTAL DEPOSITS BEFORE OVERWRITE", riftExchange.getDepositVaultsLength());
 
-        console.log("vault at index 0 before overwrite: ", riftExchange.getDepositVault(0).initialBalance);
         riftExchange.depositLiquidity(
             btcPayoutLockingScript,
             newBtcExchangeRate,
@@ -117,10 +139,14 @@ contract RiftExchangeTest is Test {
         RiftExchange.DepositVault memory overwrittenDeposit = riftExchange.getDepositVault(
             uint256(vaultIndexToOverwrite)
         );
+
+        // Calculate the expected buffered amount (from 6 to 18 decimals)
+        uint256 expectedBufferedAmount = uint256(newDepositAmount) * 1e12;
+
         assertEq(
             overwrittenDeposit.initialBalance,
-            newDepositAmount,
-            "Overwritten deposit amount should match new deposit amount"
+            expectedBufferedAmount,
+            "Overwritten deposit amount should match new deposit amount (buffered to 18 decimals)"
         );
         assertEq(
             overwrittenDeposit.exchangeRate,
@@ -128,21 +154,30 @@ contract RiftExchangeTest is Test {
             "Overwritten BTC exchange rate should match new rate"
         );
 
+        // Optional: Check if the unbuffered amount matches the original new deposit amount
+        uint256 unbufferedAmount = overwrittenDeposit.initialBalance / 1e12;
+        assertEq(
+            unbufferedAmount,
+            newDepositAmount,
+            "Unbuffered deposit amount should match original new deposit amount"
+        );
+
         vm.stopPrank();
     }
 
     function testDepositMultiple() public {
-        deal(address(weth), testAddress, 99999999 ether);
+        uint256 totalAmount = 1_000_000_000_000_000e6; // 1 quadrillion USDT
+        deal(address(usdt), testAddress, totalAmount);
         vm.startPrank(testAddress);
 
-        weth.approve(address(riftExchange), 99999999 ether);
+        usdt.approve(address(riftExchange), totalAmount);
 
         uint256 firstDepositGasCost;
         uint256 lastDepositGasCost;
 
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 exchangeRate = 2557666;
-        uint192 depositAmount = 500 ether;
+        uint256 depositAmount = 1_000_000e6; // 1 million USDT per deposit
         uint256 totalGasUsed = 0;
 
         // create multiple deposits
@@ -171,17 +206,32 @@ contract RiftExchangeTest is Test {
         console.log("Gas cost for the first deposit:", firstDepositGasCost);
         console.log("Gas cost for the last deposit:", lastDepositGasCost);
         console.log("Average gas cost:", averageGasCost);
+
+        // Assert that all deposits were successful
+        assertEq(riftExchange.getDepositVaultsLength(), numDeposits, "Number of deposits mismatch");
+
+        // Check the total amount deposited
+        uint256 totalDeposited = depositAmount * numDeposits;
+        assertLe(totalDeposited, totalAmount, "Total deposited amount exceeds initial balance");
+
+        // Optionally, check the balance of a few random vaults
+        for (uint256 i = 0; i < 5; i++) {
+            uint256 randomIndex = uint256(keccak256(abi.encodePacked(block.timestamp, i))) % numDeposits;
+            RiftExchange.DepositVault memory vault = riftExchange.getDepositVault(randomIndex);
+            assertEq(vault.initialBalance, depositAmount * 1e12, "Deposit amount in vault mismatch");
+        }
     }
 
     function testDepositUpdateExchangeRate() public {
         // setup
-        deal(address(weth), testAddress, 10 ether);
+        uint256 totalAmount = 1_000_000_000e6; // 1 billion USDT
+        deal(address(usdt), testAddress, totalAmount);
         vm.startPrank(testAddress);
-        weth.approve(address(riftExchange), 10 ether);
+        usdt.approve(address(riftExchange), totalAmount);
 
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 initialBtcExchangeRate = 69;
-        uint192 depositAmount = 1 ether;
+        uint256 depositAmount = 100_000_000e6; // 100 million USDT
 
         // create initial deposit
         riftExchange.depositLiquidity(
@@ -207,6 +257,13 @@ contract RiftExchangeTest is Test {
             "BTC exchange rate should be updated to the new value"
         );
 
+        // Verify that the deposit amount remains unchanged
+        assertEq(
+            updatedDeposit.initialBalance,
+            depositAmount * 1e12,
+            "Deposit amount should remain unchanged after exchange rate update"
+        );
+
         vm.stopPrank();
     }
 
@@ -214,12 +271,13 @@ contract RiftExchangeTest is Test {
 
     function testReserveLiquidity() public {
         // setup
-        deal(address(weth), testAddress, 1000000e18);
+        uint256 totalAmount = 1_000_000_000e6; // 1 billion USDT
+        deal(address(usdt), testAddress, totalAmount);
         vm.startPrank(testAddress);
-        weth.approve(address(riftExchange), 5 ether);
+        usdt.approve(address(riftExchange), totalAmount);
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 exchangeRate = 69;
-        uint192 depositAmount = 5 ether;
+        uint192 depositAmount = 500_000_000e6; // 500 million USDT
 
         // deposit liquidity
         riftExchange.depositLiquidity(
@@ -238,13 +296,13 @@ contract RiftExchangeTest is Test {
         uint256[] memory vaultIndexesToReserve = new uint256[](1);
         vaultIndexesToReserve[0] = 0;
         uint192[] memory amountsToReserve = new uint192[](1);
-        amountsToReserve[0] = 1 ether;
+        amountsToReserve[0] = 100_000_000e6; // 100 million USDT
         address ethPayoutAddress = address(0x123); // Example ETH payout address
         uint256[] memory empty = new uint256[](0);
 
-        // Approve additional WETH for fees
-        uint256 additionalApproval = 0.01 ether; // Adjust this based on expected fees
-        weth.approve(address(riftExchange), amountsToReserve[0] + additionalApproval);
+        // Approve additional USDT for fees
+        uint256 additionalApproval = 1_000_000e6; // 1 million USDT for fees
+        usdt.approve(address(riftExchange), uint256(amountsToReserve[0]) + additionalApproval);
 
         console.log("Amount trying to reserve:", amountsToReserve[0]);
 
@@ -258,7 +316,7 @@ contract RiftExchangeTest is Test {
 
         // assertions
         assertEq(reservation.ethPayoutAddress, ethPayoutAddress, "ETH payout address should match");
-        assertEq(reservation.totalSwapAmount, amountsToReserve[0], "Total swap amount should match");
+        assertEq(reservation.totalSwapAmount, uint256(amountsToReserve[0] * 1e12), "Total swap amount should match");
 
         // validate balances and state changes
         uint256 remainingBalance = riftExchange.getDepositVaultUnreservedBalance(0);
@@ -266,8 +324,15 @@ contract RiftExchangeTest is Test {
         console.log("Remaining balance:", remainingBalance);
         assertEq(
             remainingBalance,
-            depositAmount - amountsToReserve[0],
+            uint256(depositAmount) - uint256(amountsToReserve[0]),
             "Vault balance should decrease by the reserved amount"
+        );
+
+        // Check if the reservation amount is correctly buffered to 18 decimals in the contract
+        assertEq(
+            reservation.totalSwapAmount,
+            uint256(amountsToReserve[0]) * 1e12,
+            "Reserved amount should be buffered to 18 decimals in the contract"
         );
 
         vm.stopPrank();
@@ -275,21 +340,32 @@ contract RiftExchangeTest is Test {
 
     function testReserveMultipleLiquidity() public {
         // setup
-        deal(address(weth), testAddress, 1000000e18);
+        uint256 totalAmount = 1_000_000_000e6; // 1 billion USDT
+        deal(address(usdt), testAddress, totalAmount);
         vm.startPrank(testAddress);
-        weth.approve(address(riftExchange), 5000000 ether);
+        usdt.approve(address(riftExchange), totalAmount);
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 exchangeRate = 69;
-        uint192 depositAmount = 50 ether;
+        uint192 depositAmount = 500_000_000e6; // 500 million USDT
 
         // deposit liquidity
-        riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
+        riftExchange.depositLiquidity(
+            btcPayoutLockingScript,
+            exchangeRate,
+            -1, // no vault index to overwrite
+            depositAmount,
+            -1 // no vault index with same exchange rate
+        );
 
         uint256[] memory vaultIndexesToReserve = new uint256[](1);
         vaultIndexesToReserve[0] = 0;
         uint192[] memory amountsToReserve = new uint192[](1);
-        amountsToReserve[0] = 1 ether;
+        amountsToReserve[0] = 10_000_000e6; // 10 million USDT
         uint256[] memory empty = new uint256[](0);
+
+        // Approve additional USDT for fees
+        uint256 additionalApproval = 1_000_000e6; // 1 million USDT for fees
+        usdt.approve(address(riftExchange), uint256(amountsToReserve[0]) * 10 + additionalApproval);
 
         uint256 gasFirst;
         uint256 gasLast;
@@ -321,7 +397,7 @@ contract RiftExchangeTest is Test {
         console.log("Remaining balance:", remainingBalance);
         assertEq(
             remainingBalance,
-            depositAmount - (amountsToReserve[0] * numReservations),
+            uint256(depositAmount) - (uint256(amountsToReserve[0]) * numReservations),
             "Vault balance should decrease by the total reserved amount"
         );
 
@@ -330,12 +406,13 @@ contract RiftExchangeTest is Test {
 
     function testReservationWithVaryingVaults() public {
         // setup
-        deal(address(weth), testAddress, 1000000 ether);
+        uint256 totalAmount = 1_000_000_000e6; // 1 billion USDT
+        deal(address(usdt), testAddress, totalAmount);
         vm.startPrank(testAddress);
-        weth.approve(address(riftExchange), 1000000 ether);
+        usdt.approve(address(riftExchange), totalAmount * 2);
 
         uint256 maxVaults = 100;
-        uint192 depositAmount = 500 ether;
+        uint192 depositAmount = 5_000_000e6; // 5 million USDT
         uint64 exchangeRate = 69;
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
 
@@ -351,11 +428,12 @@ contract RiftExchangeTest is Test {
 
             for (uint256 j = 0; j < numVaults; j++) {
                 vaultIndexesToReserve[j] = j;
-                amountsToReserve[j] = 0.1 ether;
+                amountsToReserve[j] = 100e6; // 100 USDT
             }
 
             // Increase approval to account for fees
-            weth.approve(address(riftExchange), 0.11 ether * numVaults);
+            uint256 totalReservation = 110_000e6 * numVaults; // 110,000 USDT per vault (including fees)
+            usdt.approve(address(riftExchange), totalReservation);
 
             uint256[] memory emptyExpiredReservations = new uint256[](0);
 
@@ -375,14 +453,15 @@ contract RiftExchangeTest is Test {
 
     function testReservationOverwriting() public {
         // setup
-        deal(address(weth), testAddress, 10000 ether);
+        uint256 totalAmount = 10_000_000e6; // 10 million USDT
+        deal(address(usdt), testAddress, totalAmount);
         vm.startPrank(testAddress);
-        weth.approve(address(riftExchange), 10000 ether);
+        usdt.approve(address(riftExchange), totalAmount);
 
         // deposit liquidity
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 exchangeRate = 69;
-        uint192 depositAmount = 5 ether;
+        uint192 depositAmount = 5_000_000e6; // 5 million USDT
 
         riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
 
@@ -390,7 +469,7 @@ contract RiftExchangeTest is Test {
         uint256[] memory vaultIndexesToReserve = new uint256[](1);
         vaultIndexesToReserve[0] = 0;
         uint192[] memory amountsToReserve = new uint192[](1);
-        amountsToReserve[0] = 1 ether;
+        amountsToReserve[0] = 1_000_000e6; // 1 million USDT
         uint256[] memory empty = new uint256[](0);
 
         riftExchange.reserveLiquidity(vaultIndexesToReserve, amountsToReserve, testAddress, empty);
@@ -412,7 +491,11 @@ contract RiftExchangeTest is Test {
         // Verify the reservation overwrite
         RiftExchange.SwapReservation memory overwrittenReservation = riftExchange.getReservation(0);
         assertEq(overwrittenReservation.ethPayoutAddress, newEthPayoutAddress, "ETH payout address should match");
-        assertEq(overwrittenReservation.amountsToReserve[0], amountsToReserve[0], "Reserved amount should match");
+        assertEq(
+            overwrittenReservation.totalSwapAmount,
+            uint256(amountsToReserve[0]) * 1e12,
+            "Reserved amount should match and be buffered to 18 decimals"
+        );
         // assertEq(overwrittenReservation.state, RiftExchange.ReservationState.Created, "Reservation state should be Created");
 
         vm.stopPrank();
@@ -422,36 +505,41 @@ contract RiftExchangeTest is Test {
 
     function testWithdrawLiquidity() public {
         // setup
-        deal(address(weth), testAddress, 5 ether);
+        uint256 totalAmount = 5_000_000e6; // 5 million USDT
+        deal(address(usdt), testAddress, totalAmount);
         vm.startPrank(testAddress);
-        weth.approve(address(riftExchange), 100 ether);
+        usdt.approve(address(riftExchange), totalAmount);
 
         // [0] initial deposit
-        uint192 depositAmount = 5 ether;
+        uint192 depositAmount = 5_000_000e6; // 5 million USDT
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 exchangeRate = 50;
         riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
 
         // Record initial balance
-        uint256 initialBalance = weth.balanceOf(testAddress);
+        uint256 initialBalance = usdt.balanceOf(testAddress);
 
         // [1] withdraw some of the liquidity
         uint256[] memory empty = new uint256[](0);
-        uint192 withdrawAmount = 2 ether;
+        uint192 withdrawAmount = 2_000_000e6; // 2 million USDT
         riftExchange.withdrawLiquidity(0, 0, withdrawAmount, empty);
 
         // [2] check if the balance has decreased correctly
         RiftExchange.DepositVault memory depositAfterWithdrawal = riftExchange.getDepositVault(0);
-        uint256 expectedRemaining = depositAmount - withdrawAmount;
+        uint256 expectedRemaining = uint256(depositAmount) - uint256(withdrawAmount);
         assertEq(
             depositAfterWithdrawal.unreservedBalance,
-            expectedRemaining,
+            expectedRemaining * 1e12,
             "Remaining deposit should match expected amount after withdrawal"
         );
 
         // [3] check if the funds reached the LP's address
-        uint256 finalBalance = weth.balanceOf(testAddress);
-        assertEq(finalBalance, initialBalance + withdrawAmount, "LP's balance should increase by the withdrawn amount");
+        uint256 finalBalance = usdt.balanceOf(testAddress);
+        assertEq(
+            finalBalance,
+            initialBalance + uint256(withdrawAmount),
+            "LP's balance should increase by the withdrawn amount"
+        );
 
         vm.stopPrank();
     }
@@ -460,12 +548,13 @@ contract RiftExchangeTest is Test {
 
     function testUpdateExchangeRate() public {
         // setup
-        deal(address(weth), testAddress, 10 ether);
+        uint256 totalAmount = 10_000_000e6; // 10 million USDT
+        deal(address(usdt), testAddress, totalAmount);
         vm.startPrank(testAddress);
-        weth.approve(address(riftExchange), 10 ether);
+        usdt.approve(address(riftExchange), totalAmount);
 
         // deposit liquidity
-        uint192 depositAmount = 5 ether;
+        uint192 depositAmount = 5_000_000e6; // 5 million USDT
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 initialBtcExchangeRate = 50;
         riftExchange.depositLiquidity(btcPayoutLockingScript, initialBtcExchangeRate, -1, depositAmount, -1);
@@ -509,7 +598,7 @@ contract RiftExchangeTest is Test {
         uint256[] memory vaultIndexesToReserve = new uint256[](1);
         vaultIndexesToReserve[0] = globalVaultIndex;
         uint192[] memory amountsToReserve = new uint192[](1);
-        amountsToReserve[0] = 1 ether;
+        amountsToReserve[0] = 1_000_000e6; // 1 million USDT
         riftExchange.reserveLiquidity(vaultIndexesToReserve, amountsToReserve, testAddress, expiredReservationIndexes);
 
         vm.expectRevert(INVALID_UPDATE_WITH_ACTIVE_RESERVATIONS);

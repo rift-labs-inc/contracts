@@ -59,6 +59,7 @@ contract RiftExchange is BlockHashStorage, Owned {
 
     IERC20 public immutable DEPOSIT_TOKEN;
     uint8 public immutable TOKEN_DECIMALS;
+    uint256 private constant DECIMAL_PRECISION = 1e18;
 
     uint8 public protocolFeeBP = 100; // 100 bp = 1%
     uint256 public proverReward;
@@ -75,7 +76,7 @@ contract RiftExchange is BlockHashStorage, Owned {
 
     struct DepositVault {
         uint256 initialBalance; // in token's smallest unit (wei, μUSDT, etc)
-        uint192 unreservedBalance; // true balance in token's smallest unit = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
+        uint256 unreservedBalance; // true balance in token's smallest unit = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
         uint64 exchangeRate; // amount of token's smallest unit per 1 sat
         bytes22 btcPayoutLockingScript;
     }
@@ -124,7 +125,11 @@ contract RiftExchange is BlockHashStorage, Owned {
         // [0] set verifier contract and deposit token
         verifierContract = RiftPlonkVerification(verifierContractAddress);
         DEPOSIT_TOKEN = IERC20(depositTokenAddress);
+        console.log("DEPOSIT_TOKEN: ");
+        console.logAddress(address(DEPOSIT_TOKEN));
         TOKEN_DECIMALS = DEPOSIT_TOKEN.decimals();
+        console.log("TOKEN_DECIMALS: ");
+        console.logUint(TOKEN_DECIMALS);
 
         // [1] set rewards based on underlying token
         proverReward = _proverReward; // in smallest token unit
@@ -139,9 +144,13 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes22 btcPayoutLockingScript,
         uint64 exchangeRate,
         int256 vaultIndexToOverwrite,
-        uint192 depositAmount,
+        uint256 depositAmount,
         int256 vaultIndexWithSameExchangeRate
     ) public {
+        console.log("depositLiquidity");
+        console.log("DepositAmount: ", depositAmount);
+        uint256 internalDepositAmount = toInternalPrecision(depositAmount);
+        console.log("internalDepositAmount: ", internalDepositAmount);
         // [0] validate btc exchange rate
         if (exchangeRate == 0) {
             revert exchangeRateZero();
@@ -157,7 +166,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             uint256 vaultIndex = uint(vaultIndexWithSameExchangeRate);
             DepositVault storage vault = depositVaults[vaultIndex];
             if (vault.exchangeRate == exchangeRate) {
-                vault.unreservedBalance += depositAmount;
+                vault.unreservedBalance += internalDepositAmount;
             } else {
                 revert InvaidSameExchangeRatevaultIndex();
             }
@@ -173,8 +182,8 @@ contract RiftExchange is BlockHashStorage, Owned {
             }
 
             // [2] overwrite empty vault with new deposit
-            emptyVault.initialBalance = depositAmount;
-            emptyVault.unreservedBalance = depositAmount;
+            emptyVault.initialBalance = internalDepositAmount;
+            emptyVault.unreservedBalance = internalDepositAmount;
             emptyVault.exchangeRate = exchangeRate;
             emptyVault.btcPayoutLockingScript = btcPayoutLockingScript;
         }
@@ -182,8 +191,8 @@ contract RiftExchange is BlockHashStorage, Owned {
         else {
             depositVaults.push(
                 DepositVault({
-                    initialBalance: depositAmount,
-                    unreservedBalance: depositAmount,
+                    initialBalance: internalDepositAmount,
+                    unreservedBalance: internalDepositAmount,
                     exchangeRate: exchangeRate,
                     btcPayoutLockingScript: btcPayoutLockingScript
                 })
@@ -234,6 +243,8 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint192 amountToWithdraw,
         uint256[] memory expiredReservationIndexes
     ) public {
+        uint256 internalAmountToWithdraw = toInternalPrecision(amountToWithdraw);
+
         // ensure msg.sender is vault owner
         if (liquidityProviders[msg.sender].depositVaultIndexes[localVaultIndex] != globalVaultIndex) {
             revert NotVaultOwner();
@@ -259,18 +270,18 @@ contract RiftExchange is BlockHashStorage, Owned {
         DepositVault storage vault = depositVaults[globalVaultIndex];
 
         // [2] validate amount to withdraw
-        if (amountToWithdraw == 0 || amountToWithdraw > vault.unreservedBalance) {
+        if (internalAmountToWithdraw == 0 || internalAmountToWithdraw > vault.unreservedBalance) {
             revert WithdrawalAmountError();
         }
 
         // [3] withdraw funds to LP
         //console.log("unreservedBalance before: ", vault.unreservedBalance);
-        vault.unreservedBalance -= amountToWithdraw;
+        vault.unreservedBalance -= internalAmountToWithdraw;
         //console.log("unreservedBalance after: ", vault.unreservedBalance);
         //console.log("amountToWithdraw: ", amountToWithdraw);
         //console.log("contract balance: ", DEPOSIT_TOKEN.balanceOf(address(this)));
 
-        DEPOSIT_TOKEN.transfer(msg.sender, amountToWithdraw);
+        DEPOSIT_TOKEN.transfer(msg.sender, fromInternalPrecision(internalAmountToWithdraw));
     }
 
     function reserveLiquidity(
@@ -282,7 +293,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         // [0] calculate total amount of ETH the user is attempting to reserve
         uint256 combinedAmountsToReserve = 0;
         for (uint i = 0; i < amountsToReserve.length; i++) {
-            combinedAmountsToReserve += amountsToReserve[i];
+            combinedAmountsToReserve += toInternalPrecision(amountsToReserve[i]);
         }
 
         // [1] calculate fees
@@ -361,7 +372,7 @@ contract RiftExchange is BlockHashStorage, Owned {
 
         // update unreserved balances in deposit vaults
         for (uint i = 0; i < vaultIndexesToReserve.length; i++) {
-            depositVaults[vaultIndexesToReserve[i]].unreservedBalance -= amountsToReserve[i];
+            depositVaults[vaultIndexesToReserve[i]].unreservedBalance -= toInternalPrecision(amountsToReserve[i]);
         }
 
         // transfer fees from user to contract
@@ -515,7 +526,10 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
 
         // [9] release funds to buyers ETH payout address
-        DEPOSIT_TOKEN.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapAmount);
+        DEPOSIT_TOKEN.transfer(
+            swapReservation.ethPayoutAddress,
+            fromInternalPrecision(swapReservation.totalSwapAmount)
+        );
 
         // [10] mark swap reservation as completed
         swapReservation.state = ReservationState.Completed;
@@ -552,6 +566,10 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     function getDepositVaultUnreservedBalance(uint256 depositIndex) public view returns (uint256) {
+        return fromInternalPrecision(depositVaults[depositIndex].unreservedBalance);
+    }
+
+    function getDepositVaultUnreservedBalanceInternalPrecision(uint256 depositIndex) public view returns (uint256) {
         return depositVaults[depositIndex].unreservedBalance;
     }
 
@@ -595,6 +613,20 @@ contract RiftExchange is BlockHashStorage, Owned {
                 revert ReservationNotExpired();
             }
         }
+    }
+
+    function toInternalPrecision(uint256 amount) internal view returns (uint256) {
+        if (TOKEN_DECIMALS < 18) {
+            return amount * (10 ** (18 - TOKEN_DECIMALS));
+        }
+        return amount;
+    }
+
+    function fromInternalPrecision(uint256 amount) internal view returns (uint256) {
+        if (TOKEN_DECIMALS < 18) {
+            return amount / (10 ** (18 - TOKEN_DECIMALS));
+        }
+        return amount;
     }
 
     // --------- TESTING FUNCTIONS (TODO: DELETE) --------- //
