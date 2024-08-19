@@ -401,7 +401,9 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes32 safeBlockHash;
         bytes32 retargetBlockHash;
         uint64 safeBlockHeight;
-        uint64 blockHeightDelta;
+        uint64 safeBlockHeightDelta;
+        uint64 confirmationBlockHeightDelta;
+        uint64 retargetBlockHeight;
         bytes32[16] aggregation_object;
     }
 
@@ -413,9 +415,9 @@ contract RiftExchange is BlockHashStorage, Owned {
         publicInputs[3] = hashToFieldLower(inputs.lpReservationHash);
         publicInputs[4] = hashToFieldUpper(inputs.orderNonce);
         publicInputs[5] = hashToFieldLower(inputs.orderNonce);
-        publicInputs[8] = hashToFieldUpper(inputs.confirmationBlockHash);
         publicInputs[6] = bytes32(uint256(inputs.expectedPayout));
         publicInputs[7] = bytes32(uint256(inputs.lpCount));
+        publicInputs[8] = hashToFieldUpper(inputs.confirmationBlockHash);
         publicInputs[9] = hashToFieldLower(inputs.confirmationBlockHash);
         publicInputs[10] = hashToFieldUpper(inputs.proposedBlockHash);
         publicInputs[11] = hashToFieldLower(inputs.proposedBlockHash);
@@ -424,9 +426,11 @@ contract RiftExchange is BlockHashStorage, Owned {
         publicInputs[14] = hashToFieldUpper(inputs.retargetBlockHash);
         publicInputs[15] = hashToFieldLower(inputs.retargetBlockHash);
         publicInputs[16] = bytes32(uint256(inputs.safeBlockHeight));
-        publicInputs[17] = bytes32(uint256(inputs.blockHeightDelta));
+        publicInputs[17] = bytes32(uint256(inputs.safeBlockHeightDelta));
+        publicInputs[18] = bytes32(uint256(inputs.confirmationBlockHeightDelta));
+        publicInputs[19] = bytes32(uint256(inputs.retargetBlockHeight));
         for (uint i = 0; i < 16; i++) {
-            publicInputs[18 + i] = inputs.aggregation_object[i];
+            publicInputs[20 + i] = inputs.aggregation_object[i];
         }
         return publicInputs;
     }
@@ -439,6 +443,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint32 safeBlockHeight,
         uint256 swapReservationIndex,
         uint64 proposedBlockHeight,
+        uint64 confirmationBlockHeight,
         bytes32[16] memory aggregation_object,
         bytes memory proof
     ) public {
@@ -457,7 +462,9 @@ contract RiftExchange is BlockHashStorage, Owned {
                 safeBlockHash: getBlockHash(safeBlockHeight),
                 retargetBlockHash: retargetBlockHash,
                 safeBlockHeight: safeBlockHeight,
-                blockHeightDelta: proposedBlockHeight - safeBlockHeight,
+                safeBlockHeightDelta: proposedBlockHeight - safeBlockHeight,
+                confirmationBlockHeightDelta: confirmationBlockHeight - proposedBlockHeight,
+                retargetBlockHeight: calculateRetargetHeight(proposedBlockHeight),
                 aggregation_object: aggregation_object
             })
         );

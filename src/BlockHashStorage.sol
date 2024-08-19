@@ -50,4 +50,8 @@ contract BlockHashStorage {
     function getBlockHash(uint256 blockHeight) public view returns (bytes32) {
         return blockchain[blockHeight];
     }
+
+    function calculateRetargetHeight(uint64 blockHeight) internal pure returns (uint64) {
+      return blockHeight - (blockHeight % 2016);
+    }
 }
