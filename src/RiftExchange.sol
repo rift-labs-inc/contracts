@@ -408,7 +408,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     function buildProofPublicInputs(ProofPublicInputs memory inputs) public pure returns (bytes32[] memory) {
-        bytes32[] memory publicInputs = new bytes32[](34);
+        bytes32[] memory publicInputs = new bytes32[](36);
         publicInputs[0] = hashToFieldUpper(inputs.bitcoinTxId);
         publicInputs[1] = hashToFieldLower(inputs.bitcoinTxId);
         publicInputs[2] = hashToFieldUpper(inputs.lpReservationHash);
