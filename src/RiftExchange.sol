@@ -90,7 +90,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     struct SwapReservation {
-        uint32 confirmationBlockHeight;
+        // uint32 confirmationBlockHeight;
         uint32 reservationTimestamp;
         uint32 unlockTimestamp; // timestamp when reservation was proven and unlocked
         ReservationState state;
@@ -516,6 +516,8 @@ contract RiftExchange is BlockHashStorage, Owned {
         if (block.timestamp - swapReservation.unlockTimestamp < CHALLENGE_PERIOD) {
             revert StillInChallengePeriod();
         }
+
+        // ensure
 
         // [5] pay releaser (release cost + releaser reward)
         uint releaserPayoutAmount = releaserReward + ((RELEASE_GAS_COST * block.basefee));

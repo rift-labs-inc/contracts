@@ -6,38 +6,74 @@ import "forge-std/console.sol";
 
 error InvalidSafeBlock();
 error BlockDoesNotExist();
+error InvalidConfirmationBlock();
+error InvalidProposedBlockOverwrite();
 
 contract BlockHashStorage {
     mapping(uint256 => bytes32) blockchain; // block height => block hash
     uint256 public currentHeight;
+    uint256 public currentConfirmationHeight;
 
     constructor(uint256 safeBlock_height, bytes32 blockHash) {
         currentHeight = safeBlock_height;
         blockchain[safeBlock_height] = blockHash;
     }
 
-    function addBlock(uint256 safeBlockHeight, uint256 blockHeight, bytes32 blockHash) public {
-        // TODO: make this interanal after testing
-        // [0] validate safeBlock height
-        uint _currentHeight = currentHeight;
-        if (safeBlockHeight > _currentHeight) {
-            revert InvalidSafeBlock();
-        }
+    // TODO: make this interanal after testing
+    function addBlock(
+        uint256 safeBlockHeight,
+        uint256 proposedBlockHeight,
+        uint256 confirmationBlockHeight,
+        bytes32[] memory blockHashes, // from safe block to confirmation block
+        uint256 proposedBlockIndex // in blockHashes array
+    ) public {
+        uint _tipBlockHeight = currentHeight;
 
-        // [1] check for new proposed longest chain and clear orphaned blocks
-        if (safeBlockHeight < _currentHeight && blockHeight >= _currentHeight) {
-            for (uint256 i = safeBlockHeight; i < _currentHeight; i++) {
-                // check if block exists in mapping
-                if (blockchain[i] != bytes32(0)) {
-                    // clear orphaned block
-                    delete blockchain[i]; // TODO: more effecient solution?
-                }
+        // [0] ensure confirmation block matches block in blockchain (if < 5 away from proposed block)
+        if (confirmationBlockHeight - proposedBlockHeight < 5) {
+            if (blockHashes[blockHashes.length - 1] != blockchain[confirmationBlockHeight]) {
+                revert InvalidConfirmationBlock();
             }
         }
 
-        // [2] add new block to blockchain
-        blockchain[blockHeight] = blockHash;
-        currentHeight = blockHeight;
+        // [1] validate safeBlock height
+        if (safeBlockHeight > _tipBlockHeight) {
+            revert InvalidSafeBlock();
+        }
+
+        // [2] return if block already exists
+        if (blockchain[proposedBlockHeight] == blockHashes[proposedBlockIndex]) {
+            return;
+        }
+        // [3] ensure proposed block is not being overwritten unless longer chain (higher confirmation block height)
+        else if (
+            blockchain[proposedBlockHeight] != bytes32(0) && currentConfirmationHeight >= confirmationBlockHeight
+        ) {
+            revert InvalidProposedBlockOverwrite();
+        }
+
+        // [4] ADDITION/OVERWRITE (proposed block > tip block)
+        if (proposedBlockHeight > _tipBlockHeight) {
+            // [a] ADDITION - (safe block === tip block)
+            if (safeBlockHeight == _tipBlockHeight) {
+                blockchain[proposedBlockHeight] = blockHashes[proposedBlockIndex];
+            }
+            // [b] OVERWRITE - new longest chain (safe block < tip block < proposed block)
+            else if (safeBlockHeight < _tipBlockHeight) {
+                for (uint256 i = safeBlockHeight; i <= proposedBlockHeight; i++) {
+                    blockchain[i] = blockHashes[i - safeBlockHeight];
+                }
+            }
+        }
+        // [5] INSERTION - (safe block < proposed block < tip block)
+        else if (proposedBlockHeight < _tipBlockHeight) {
+            blockchain[proposedBlockHeight] = blockHashes[proposedBlockIndex];
+        }
+
+        // [6] update current height
+        if (proposedBlockHeight > currentHeight) {
+            currentHeight = proposedBlockHeight;
+        }
     }
 
     function validateBlockExists(uint256 blockHeight) public view {
@@ -52,6 +88,6 @@ contract BlockHashStorage {
     }
 
     function calculateRetargetHeight(uint64 blockHeight) internal pure returns (uint64) {
-      return blockHeight - (blockHeight % 2016);
+        return blockHeight - (blockHeight % 2016);
     }
 }
