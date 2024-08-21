@@ -90,7 +90,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     struct SwapReservation {
-        // uint32 confirmationBlockHeight;
+        uint32 confirmationBlockHeight;
         uint32 reservationTimestamp;
         uint32 unlockTimestamp; // timestamp when reservation was proven and unlocked
         ReservationState state;
@@ -436,14 +436,12 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     function proposeTransactionProof(
-        bytes32 bitcoinTxId,
-        bytes32 confirmationBlockHash,
-        bytes32 proposedBlockHash,
-        bytes32 retargetBlockHash,
-        uint32 safeBlockHeight,
         uint256 swapReservationIndex,
+        bytes32 bitcoinTxId,
+        uint32 safeBlockHeight,
         uint64 proposedBlockHeight,
         uint64 confirmationBlockHeight,
+        bytes32[] memory blockHashes,
         bytes32[16] memory aggregation_object,
         bytes memory proof
     ) public {
@@ -457,10 +455,10 @@ contract RiftExchange is BlockHashStorage, Owned {
                 orderNonce: swapReservation.nonce,
                 expectedPayout: uint64(swapReservation.totalSwapAmount),
                 lpCount: uint64(swapReservation.vaultIndexes.length),
-                confirmationBlockHash: confirmationBlockHash,
-                proposedBlockHash: proposedBlockHash,
+                confirmationBlockHash: blockHashes[blockHashes.length - 1],
+                proposedBlockHash: blockHashes[proposedBlockHeight - safeBlockHeight],
                 safeBlockHash: getBlockHash(safeBlockHeight),
-                retargetBlockHash: retargetBlockHash,
+                retargetBlockHash: getBlockHash(calculateRetargetHeight(proposedBlockHeight)),
                 safeBlockHeight: safeBlockHeight,
                 safeBlockHeightDelta: proposedBlockHeight - safeBlockHeight,
                 confirmationBlockHeightDelta: confirmationBlockHeight - proposedBlockHeight,
@@ -479,7 +477,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         verifierContract.verify(proof, publicInputs);
 
         // [2] add verified block to block header storage contract
-        addBlock(safeBlockHeight, proposedBlockHeight, proposedBlockHash);
+        addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, proposedBlockHeight - safeBlockHeight);
 
         // [3] set confirmation block height in swap reservation
         swapReservation.confirmationBlockHeight = safeBlockHeight;
