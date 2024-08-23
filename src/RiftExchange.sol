@@ -92,7 +92,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     struct SwapReservation {
-        // uint32 confirmationBlockHeight;
+        uint32 confirmationBlockHeight;
         uint32 reservationTimestamp;
         uint32 unlockTimestamp; // timestamp when reservation was proven and unlocked
         ReservationState state;
@@ -344,9 +344,9 @@ contract RiftExchange is BlockHashStorage, Owned {
             swapReservations.push(
                 SwapReservation({
                     state: ReservationState.Created,
+                    confirmationBlockHeight: 0,
                     ethPayoutAddress: ethPayoutAddress,
                     reservationTimestamp: uint32(block.timestamp),
-                    // confirmationBlockHeight: 0,
                     unlockTimestamp: 0,
                     totalSwapAmount: combinedAmountsToReserve,
                     prepaidFeeAmount: int256(proverFee + releaserFee),
@@ -428,14 +428,12 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     function proposeTransactionProof(
-        bytes32 bitcoinTxId,
-        bytes32 confirmationBlockHash,
-        bytes32 proposedBlockHash,
-        bytes32 retargetBlockHash,
-        uint32 safeBlockHeight,
         uint256 swapReservationIndex,
+        bytes32 bitcoinTxId,
+        uint32 safeBlockHeight,
         uint64 proposedBlockHeight,
         uint64 confirmationBlockHeight,
+        bytes32[] memory blockHashes,
         bytes32[16] memory aggregation_object,
         bytes memory proof
     ) public {
@@ -450,10 +448,10 @@ contract RiftExchange is BlockHashStorage, Owned {
                 orderNonce: swapReservation.nonce,
                 expectedPayout: uint64(swapReservation.totalSwapAmount),
                 lpCount: uint64(swapReservation.vaultIndexes.length),
-                confirmationBlockHash: confirmationBlockHash,
-                proposedBlockHash: proposedBlockHash,
+                confirmationBlockHash: blockHashes[blockHashes.length - 1],
+                proposedBlockHash: blockHashes[proposedBlockHeight - safeBlockHeight],
                 safeBlockHash: getBlockHash(safeBlockHeight),
-                retargetBlockHash: retargetBlockHash,
+                retargetBlockHash: getBlockHash(calculateRetargetHeight(proposedBlockHeight)),
                 safeBlockHeight: safeBlockHeight,
                 safeBlockHeightDelta: proposedBlockHeight - safeBlockHeight,
                 confirmationBlockHeightDelta: confirmationBlockHeight - proposedBlockHeight,
@@ -479,7 +477,13 @@ contract RiftExchange is BlockHashStorage, Owned {
         DEPOSIT_TOKEN.transfer(msg.sender, proverPayoutAmount);
 
         // [6] subtract prover fee from prepaid fee amount
-        swapReservation.prepaidFeeAmount -= int256(proverPayoutAmount);
+        addBlock(
+            safeBlockHeight,
+            proposedBlockHeight,
+            confirmationBlockHeight,
+            blockHashes,
+            proposedBlockHeight - safeBlockHeight
+        );
 
         // [7] if prepaid fee amount is negative, subtract from total swap amount
         if (swapReservation.prepaidFeeAmount < 0) {

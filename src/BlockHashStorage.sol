@@ -14,9 +14,9 @@ contract BlockHashStorage {
     uint256 public currentHeight;
     uint256 public currentConfirmationHeight;
 
-    constructor(uint256 safeBlock_height, bytes32 blockHash) {
-        currentHeight = safeBlock_height;
-        blockchain[safeBlock_height] = blockHash;
+    constructor(uint256 safeBlockHeight, bytes32 blockHash) {
+        currentHeight = safeBlockHeight;
+        blockchain[safeBlockHeight] = blockHash;
     }
 
     // TODO: make this interanal after testing
