@@ -63,7 +63,6 @@ contract RiftExchangeTest is Test {
     }
 
     //--------- DEPOSIT TESTS ---------//
-
     function testDepositLiquidity() public {
         deal(address(usdt), testAddress, 1_000_000_000_000_000e6); // Mint USDT (6 decimals)
         vm.startPrank(testAddress);
@@ -78,26 +77,15 @@ contract RiftExchangeTest is Test {
         usdt.approve(address(riftExchange), depositAmount);
 
         uint256 gasBefore = gasleft();
-        riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
+        riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
         uint256 gasUsed = gasBefore - gasleft();
         console.log("Gas used for deposit:", gasUsed);
 
         uint256 vaultIndex = riftExchange.getDepositVaultsLength() - 1;
         RiftExchange.DepositVault memory deposit = riftExchange.getDepositVault(vaultIndex);
 
-        // Calculate the expected buffered amount (from 6 to 18 decimals)
-        uint256 expectedBufferedAmount = depositAmount * 1e12; // Multiply by 10^(18-6) to get 18 decimal precision
-
-        assertEq(
-            deposit.initialBalance,
-            expectedBufferedAmount,
-            "Deposit amount mismatch (should be buffered to 18 decimals)"
-        );
+        assertEq(deposit.initialBalance, depositAmount, "Deposit amount mismatch");
         assertEq(deposit.exchangeRate, exchangeRate, "BTC exchange rate mismatch");
-
-        // Optional: Check if the unbuffered amount matches the original deposit
-        uint256 unbufferedAmount = deposit.initialBalance / 1e12; // Divide by 10^(18-6) to get back to 6 decimal precision
-        assertEq(unbufferedAmount, depositAmount, "Unbuffered deposit amount should match original deposit");
 
         vm.stopPrank();
     }
@@ -113,24 +101,24 @@ contract RiftExchangeTest is Test {
         uint256 initialDepositAmount = 1_000_000e6; // 1m USDT
         usdt.approve(address(riftExchange), 1_000_000_000_000_000e6);
 
-        riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, initialDepositAmount, -1);
+        riftExchange.depositLiquidity(initialDepositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
 
         // empty deposit vault
         console.log("vault at index 0 before overwrite: ", riftExchange.getDepositVault(0).initialBalance);
         riftExchange.emptyDepositVault(0);
 
         // overwrite deposit vault
-        uint256 newDepositAmount = 100e6; // 2.4 USDT
+        uint256 newDepositAmount = 100e6; // 100 USDT
         uint64 newBtcExchangeRate = 75;
         int256 vaultIndexToOverwrite = 0;
 
         console.log("TOTAL DEPOSITS BEFORE OVERWRITE", riftExchange.getDepositVaultsLength());
 
         riftExchange.depositLiquidity(
-            btcPayoutLockingScript,
-            newBtcExchangeRate,
-            vaultIndexToOverwrite, // overwriting the initial deposit
             newDepositAmount,
+            newBtcExchangeRate,
+            btcPayoutLockingScript,
+            vaultIndexToOverwrite, // overwriting the initial deposit
             -1
         );
         console.log("TOTAL DEPOSITS AFTER OVERWRITE", riftExchange.getDepositVaultsLength());
@@ -140,26 +128,15 @@ contract RiftExchangeTest is Test {
             uint256(vaultIndexToOverwrite)
         );
 
-        // Calculate the expected buffered amount (from 6 to 18 decimals)
-        uint256 expectedBufferedAmount = uint256(newDepositAmount) * 1e12;
-
         assertEq(
             overwrittenDeposit.initialBalance,
-            expectedBufferedAmount,
-            "Overwritten deposit amount should match new deposit amount (buffered to 18 decimals)"
+            newDepositAmount,
+            "Overwritten deposit amount should match new deposit amount"
         );
         assertEq(
             overwrittenDeposit.exchangeRate,
             newBtcExchangeRate,
             "Overwritten BTC exchange rate should match new rate"
-        );
-
-        // Optional: Check if the unbuffered amount matches the original new deposit amount
-        uint256 unbufferedAmount = overwrittenDeposit.initialBalance / 1e12;
-        assertEq(
-            unbufferedAmount,
-            newDepositAmount,
-            "Unbuffered deposit amount should match original new deposit amount"
         );
 
         vm.stopPrank();
@@ -185,7 +162,7 @@ contract RiftExchangeTest is Test {
         for (uint256 i = 0; i < numDeposits; i++) {
             uint256 gasBefore = gasleft();
 
-            riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
+            riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
 
             uint256 gasUsed = gasBefore - gasleft(); // Calculate gas used for the operation
             totalGasUsed += gasUsed; // Accumulate total gas used
@@ -214,11 +191,11 @@ contract RiftExchangeTest is Test {
         uint256 totalDeposited = depositAmount * numDeposits;
         assertLe(totalDeposited, totalAmount, "Total deposited amount exceeds initial balance");
 
-        // Optionally, check the balance of a few random vaults
+        // check the balance of a few random vaults
         for (uint256 i = 0; i < 5; i++) {
             uint256 randomIndex = uint256(keccak256(abi.encodePacked(block.timestamp, i))) % numDeposits;
             RiftExchange.DepositVault memory vault = riftExchange.getDepositVault(randomIndex);
-            assertEq(vault.initialBalance, depositAmount * 1e12, "Deposit amount in vault mismatch");
+            assertEq(vault.initialBalance, depositAmount, "Deposit amount in vault mismatch");
         }
     }
 
@@ -235,10 +212,10 @@ contract RiftExchangeTest is Test {
 
         // create initial deposit
         riftExchange.depositLiquidity(
-            btcPayoutLockingScript,
-            initialBtcExchangeRate,
-            -1, // no vault index to overwrite initially
             depositAmount,
+            initialBtcExchangeRate,
+            btcPayoutLockingScript,
+            -1, // no vault index to overwrite initially
             -1 // no vault index with same exchange rate
         );
 
@@ -260,7 +237,7 @@ contract RiftExchangeTest is Test {
         // Verify that the deposit amount remains unchanged
         assertEq(
             updatedDeposit.initialBalance,
-            depositAmount * 1e12,
+            depositAmount,
             "Deposit amount should remain unchanged after exchange rate update"
         );
 
@@ -281,10 +258,10 @@ contract RiftExchangeTest is Test {
 
         // deposit liquidity
         riftExchange.depositLiquidity(
-            btcPayoutLockingScript,
-            exchangeRate,
-            -1, // no vault index to overwrite
             depositAmount,
+            exchangeRate,
+            btcPayoutLockingScript,
+            -1, // no vault index to overwrite
             -1 // no vault index with same exchange rate
         );
 
@@ -316,7 +293,7 @@ contract RiftExchangeTest is Test {
 
         // assertions
         assertEq(reservation.ethPayoutAddress, ethPayoutAddress, "ETH payout address should match");
-        assertEq(reservation.totalSwapAmount, uint256(amountsToReserve[0] * 1e12), "Total swap amount should match");
+        assertEq(reservation.totalSwapAmount, uint256(amountsToReserve[0]), "Total swap amount should match");
 
         // validate balances and state changes
         uint256 remainingBalance = riftExchange.getDepositVaultUnreservedBalance(0);
@@ -326,13 +303,6 @@ contract RiftExchangeTest is Test {
             remainingBalance,
             uint256(depositAmount) - uint256(amountsToReserve[0]),
             "Vault balance should decrease by the reserved amount"
-        );
-
-        // Check if the reservation amount is correctly buffered to 18 decimals in the contract
-        assertEq(
-            reservation.totalSwapAmount,
-            uint256(amountsToReserve[0]) * 1e12,
-            "Reserved amount should be buffered to 18 decimals in the contract"
         );
 
         vm.stopPrank();
@@ -350,10 +320,10 @@ contract RiftExchangeTest is Test {
 
         // deposit liquidity
         riftExchange.depositLiquidity(
-            btcPayoutLockingScript,
-            exchangeRate,
-            -1, // no vault index to overwrite
             depositAmount,
+            exchangeRate,
+            btcPayoutLockingScript,
+            -1, // no vault index to overwrite
             -1 // no vault index with same exchange rate
         );
 
@@ -418,7 +388,7 @@ contract RiftExchangeTest is Test {
 
         // create multiple vaults
         for (uint256 i = 0; i < maxVaults; i++) {
-            riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
+            riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
         }
 
         // reserve liquidity from varying vaults
@@ -463,7 +433,7 @@ contract RiftExchangeTest is Test {
         uint64 exchangeRate = 69;
         uint192 depositAmount = 5_000_000e6; // 5 million USDT
 
-        riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
+        riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
 
         // initial reserve liquidity
         uint256[] memory vaultIndexesToReserve = new uint256[](1);
@@ -491,12 +461,7 @@ contract RiftExchangeTest is Test {
         // Verify the reservation overwrite
         RiftExchange.SwapReservation memory overwrittenReservation = riftExchange.getReservation(0);
         assertEq(overwrittenReservation.ethPayoutAddress, newEthPayoutAddress, "ETH payout address should match");
-        assertEq(
-            overwrittenReservation.totalSwapAmount,
-            uint256(amountsToReserve[0]) * 1e12,
-            "Reserved amount should match and be buffered to 18 decimals"
-        );
-        // assertEq(overwrittenReservation.state, RiftExchange.ReservationState.Created, "Reservation state should be Created");
+        assertEq(overwrittenReservation.totalSwapAmount, uint256(amountsToReserve[0]), "Reserved amount should match");
 
         vm.stopPrank();
     }
@@ -514,7 +479,7 @@ contract RiftExchangeTest is Test {
         uint192 depositAmount = 5_000_000e6; // 5 million USDT
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 exchangeRate = 50;
-        riftExchange.depositLiquidity(btcPayoutLockingScript, exchangeRate, -1, depositAmount, -1);
+        riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
 
         // Record initial balance
         uint256 initialBalance = usdt.balanceOf(testAddress);
@@ -529,7 +494,7 @@ contract RiftExchangeTest is Test {
         uint256 expectedRemaining = uint256(depositAmount) - uint256(withdrawAmount);
         assertEq(
             depositAfterWithdrawal.unreservedBalance,
-            expectedRemaining * 1e12,
+            expectedRemaining,
             "Remaining deposit should match expected amount after withdrawal"
         );
 
@@ -557,7 +522,7 @@ contract RiftExchangeTest is Test {
         uint192 depositAmount = 5_000_000e6; // 5 million USDT
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 initialBtcExchangeRate = 50;
-        riftExchange.depositLiquidity(btcPayoutLockingScript, initialBtcExchangeRate, -1, depositAmount, -1);
+        riftExchange.depositLiquidity(depositAmount, initialBtcExchangeRate, btcPayoutLockingScript, -1, -1);
 
         // update the exchange rate
         console.log("old exchange rate:", initialBtcExchangeRate);
