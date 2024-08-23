@@ -506,6 +506,9 @@ contract RiftExchangeTest is Test {
             "LP's balance should increase by the withdrawn amount"
         );
 
+        // check vault withdrawn amount = withdrawAmount
+        assertEq(depositAfterWithdrawal.withdrawnAmount, uint256(withdrawAmount), "Withdrawn amount should match");
+
         vm.stopPrank();
     }
 
