@@ -550,7 +550,7 @@ contract RiftExchangeTest is Test {
         // attempt update as a non-owner
         address nonOwner = address(0x2);
         vm.prank(nonOwner);
-        vm.expectRevert(); // Expect any revert, not specifically NotVaultOwner
+        vm.expectRevert();
         riftExchange.updateExchangeRate(
             globalVaultIndex,
             localVaultIndex,
