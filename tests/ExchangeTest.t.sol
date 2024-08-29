@@ -58,7 +58,9 @@ contract RiftExchangeTest is Test {
             proverReward,
             releaserReward,
             protocolAddress,
-            protocolAddress
+            protocolAddress,
+            hex"00ca6cebffbb631e1dcb7588151f5cd92b1fd99c85e065030307de4c677b6dba"
+
         );
     }
 

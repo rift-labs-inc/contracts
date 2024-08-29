@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.2;
 
-import {UltraVerifier as RiftPlonkVerification} from "./verifiers/RiftPlonkVerification.sol";
+import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 import {BlockHashStorage} from "./BlockHashStorage.sol";
 import {console} from "forge-std/console.sol";
 import {Owned} from "../lib/solmate/src/auth/Owned.sol";
@@ -111,7 +111,8 @@ contract RiftExchange is BlockHashStorage, Owned {
     SwapReservation[] public swapReservations;
     DepositVault[] public depositVaults;
 
-    RiftPlonkVerification public immutable verifierContract;
+    ISP1Verifier public immutable verifierContract;
+    bytes32 public immutable circuitVerificationKey;
     address payable protocolAddress = payable(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
 
     //--------- CONSTRUCTOR ---------//
@@ -124,10 +125,12 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint256 _proverReward,
         uint256 _releaserReward,
         address payable _protocolAddress,
-        address _owner
+        address _owner,
+        bytes32 _circuitVerificationKey
     ) BlockHashStorage(initialCheckpointHeight, initialBlockHash) Owned(_owner) {
         // [0] set verifier contract and deposit token
-        verifierContract = RiftPlonkVerification(verifierContractAddress);
+        circuitVerificationKey = _circuitVerificationKey;
+        verifierContract = ISP1Verifier(verifierContractAddress);
         DEPOSIT_TOKEN = IERC20(depositTokenAddress);
         console.log("DEPOSIT_TOKEN: ");
         console.logAddress(address(DEPOSIT_TOKEN));
@@ -383,48 +386,21 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     struct ProofPublicInputs {
-        bytes32 bitcoinTxId;
-        bytes32 lpReservationHash;
-        bytes32 orderNonce;
-        uint64 expectedPayout;
-        uint64 lpCount;
-        bytes32 confirmationBlockHash;
-        bytes32 proposedBlockHash;
-        bytes32 safeBlockHash;
-        bytes32 retargetBlockHash;
-        uint64 safeBlockHeight;
-        uint64 safeBlockHeightDelta;
-        uint64 confirmationBlockHeightDelta;
-        uint64 retargetBlockHeight;
-        bytes32[16] aggregation_object;
+        bytes32 natural_txid;
+        bytes32 lp_reservation_hash;
+        bytes32 order_nonce;
+        uint64 expected_payout;
+        uint64 lp_count;
+        bytes32 retarget_block_hash;
+        uint64 safe_block_height;
+        uint64 safe_block_height_delta;
+        uint64 confirmation_block_height_delta;
+        uint64 retarget_block_height;
+        bytes32[] block_hashes;
     }
 
-    function buildProofPublicInputs(ProofPublicInputs memory inputs) public pure returns (bytes32[] memory) {
-        bytes32[] memory publicInputs = new bytes32[](36);
-        publicInputs[0] = hashToFieldUpper(inputs.bitcoinTxId);
-        publicInputs[1] = hashToFieldLower(inputs.bitcoinTxId);
-        publicInputs[2] = hashToFieldUpper(inputs.lpReservationHash);
-        publicInputs[3] = hashToFieldLower(inputs.lpReservationHash);
-        publicInputs[4] = hashToFieldUpper(inputs.orderNonce);
-        publicInputs[5] = hashToFieldLower(inputs.orderNonce);
-        publicInputs[6] = bytes32(uint256(inputs.expectedPayout));
-        publicInputs[7] = bytes32(uint256(inputs.lpCount));
-        publicInputs[8] = hashToFieldUpper(inputs.confirmationBlockHash);
-        publicInputs[9] = hashToFieldLower(inputs.confirmationBlockHash);
-        publicInputs[10] = hashToFieldUpper(inputs.proposedBlockHash);
-        publicInputs[11] = hashToFieldLower(inputs.proposedBlockHash);
-        publicInputs[12] = hashToFieldUpper(inputs.safeBlockHash);
-        publicInputs[13] = hashToFieldLower(inputs.safeBlockHash);
-        publicInputs[14] = hashToFieldUpper(inputs.retargetBlockHash);
-        publicInputs[15] = hashToFieldLower(inputs.retargetBlockHash);
-        publicInputs[16] = bytes32(uint256(inputs.safeBlockHeight));
-        publicInputs[17] = bytes32(uint256(inputs.safeBlockHeightDelta));
-        publicInputs[18] = bytes32(uint256(inputs.confirmationBlockHeightDelta));
-        publicInputs[19] = bytes32(uint256(inputs.retargetBlockHeight));
-        for (uint i = 0; i < 16; i++) {
-            publicInputs[20 + i] = inputs.aggregation_object[i];
-        }
-        return publicInputs;
+    function buildProofPublicInputs(ProofPublicInputs memory inputs) public pure returns (bytes memory) {
+      return abi.encode(inputs);
     }
 
     function proposeTransactionProof(
@@ -434,34 +410,30 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint64 proposedBlockHeight,
         uint64 confirmationBlockHeight,
         bytes32[] memory blockHashes,
-        bytes32[16] memory aggregation_object,
         bytes memory proof
     ) public {
         // [0] retrieve swap order
         SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
 
         // build proof public inputs
-        bytes32[] memory publicInputs = buildProofPublicInputs(
+        bytes memory publicInputs = buildProofPublicInputs(
             ProofPublicInputs({
-                bitcoinTxId: bitcoinTxId,
-                lpReservationHash: swapReservation.lpReservationHash,
-                orderNonce: swapReservation.nonce,
-                expectedPayout: uint64(swapReservation.totalSwapAmount),
-                lpCount: uint64(swapReservation.vaultIndexes.length),
-                confirmationBlockHash: blockHashes[blockHashes.length - 1],
-                proposedBlockHash: blockHashes[proposedBlockHeight - safeBlockHeight],
-                safeBlockHash: getBlockHash(safeBlockHeight),
-                retargetBlockHash: getBlockHash(calculateRetargetHeight(proposedBlockHeight)),
-                safeBlockHeight: safeBlockHeight,
-                safeBlockHeightDelta: proposedBlockHeight - safeBlockHeight,
-                confirmationBlockHeightDelta: confirmationBlockHeight - proposedBlockHeight,
-                retargetBlockHeight: calculateRetargetHeight(proposedBlockHeight),
-                aggregation_object: aggregation_object
+                natural_txid: bitcoinTxId,
+                lp_reservation_hash: swapReservation.lpReservationHash,
+                order_nonce: swapReservation.nonce,
+                expected_payout: uint64(swapReservation.totalSwapAmount),
+                lp_count: uint64(swapReservation.vaultIndexes.length),
+                retarget_block_hash: getBlockHash(calculateRetargetHeight(proposedBlockHeight)),
+                safe_block_height: safeBlockHeight,
+                safe_block_height_delta: proposedBlockHeight - safeBlockHeight,
+                confirmation_block_height_delta: confirmationBlockHeight - proposedBlockHeight,
+                retarget_block_height: calculateRetargetHeight(proposedBlockHeight),
+                block_hashes: blockHashes
             })
         );
 
-        // TODO: [1] verify proof (will revert if invalid)
-        verifierContract.verify(proof, publicInputs);
+        // [1] verify proof (will revert if invalid)
+        verifierContract.verifyProof(circuitVerificationKey, publicInputs, proof);
 
         // [2] add verified block to block header storage contract
         addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, proposedBlockHeight - safeBlockHeight);
