@@ -22,8 +22,8 @@ contract DeployRiftExchange is Script {
         bytes32 initialBlockHash = bytes32(0);
         address verifierContractAddress = address(verifier);
         address depositTokenAddress = address(0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0);
-        uint256 proverReward = 5 * 10 ** 6;
-        uint256 releaserReward = 2 * 10 ** 6;
+        uint256 proverReward = 5 * 10 ** 6; // 5 USDT
+        uint256 releaserReward = 2 * 10 ** 6; // 2 USDT
         address payable protocolAddress = payable(address(1));
         address owner = msg.sender;
 

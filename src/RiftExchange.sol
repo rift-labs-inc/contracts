@@ -293,13 +293,15 @@ contract RiftExchange is BlockHashStorage, Owned {
         console.log("combinedAmountsToReserve: ", combinedAmountsToReserve);
         uint256 protocolFee = (combinedAmountsToReserve * SCALE * protocolFeeBP) / (BP_SCALE * SCALE);
         console.log("protocolFee: ", protocolFee);
+        // TODO multiply proof gas cost by block base fee converted to usdt from uniswap twap weth/usdt pool
+        // + ((PROOF_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
         uint proverFee = proverReward;
         console.log("proverFee: ", proverFee);
         // TODO multiply proof gas cost by block base fee converted to usdt from uniswap twap weth/usdt pool
-        // + ((RELEASE_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
+        // + ((PROOF_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
         uint releaserFee = releaserReward;
         console.log("releaserFee: ", releaserFee);
-        // TODO: potentially get historical priority fee and add it ^
+        // TODO: get historical priority fee and potentially add it ^
 
         // [3] verify proposed expired swap reservation indexes
         verifyExpiredReservations(expiredSwapReservationIndexes);
