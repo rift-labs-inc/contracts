@@ -57,12 +57,14 @@ contract RiftExchange is BlockHashStorage, Owned {
     uint256 public constant RELEASE_GAS_COST = 210_000; // TODO: update to real value
     uint256 public constant MIN_ORDER_GAS_MULTIPLIER = 2;
     uint8 public constant SAMPLING_SIZE = 10;
+    uint256 constant SCALE = 1e18;
+    uint256 constant BP_SCALE = 10000;
 
     IERC20 public immutable DEPOSIT_TOKEN;
     uint8 public immutable TOKEN_DECIMALS;
     uint256 private constant DECIMAL_PRECISION = 1e18;
 
-    uint8 public protocolFeeBP = 5; // 5 bp = 0.05%
+    uint8 public protocolFeeBP = 10; // 10 bps = 0.1%
     uint256 public proverReward;
     uint256 public releaserReward;
 
@@ -288,10 +290,16 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
 
         // [1] calculate fees
-        uint protocolFee = (combinedAmountsToReserve * (protocolFeeBP / 10_000));
-        uint proverFee = proverReward + ((PROOF_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
-        uint releaserFee = releaserReward + ((RELEASE_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
-        // TODO: get historical priority fee and potentially add it ^
+        console.log("combinedAmountsToReserve: ", combinedAmountsToReserve);
+        uint256 protocolFee = (combinedAmountsToReserve * SCALE * protocolFeeBP) / (BP_SCALE * SCALE);
+        console.log("protocolFee: ", protocolFee);
+        uint proverFee = proverReward;
+        console.log("proverFee: ", proverFee);
+        // TODO multiply proof gas cost by block base fee converted to usdt from uniswap twap weth/usdt pool
+        // + ((RELEASE_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
+        uint releaserFee = releaserReward;
+        console.log("releaserFee: ", releaserFee);
+        // TODO: potentially get historical priority fee and add it ^
 
         // [3] verify proposed expired swap reservation indexes
         verifyExpiredReservations(expiredSwapReservationIndexes);
@@ -371,7 +379,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), (proverFee + protocolFee + releaserFee));
 
         // transfer protocol fee
-        DEPOSIT_TOKEN.transferFrom(address(this), protocolAddress, protocolFee);
+        DEPOSIT_TOKEN.transfer(protocolAddress, protocolFee);
     }
 
     function hashToFieldUpper(bytes32 data) internal pure returns (bytes32) {

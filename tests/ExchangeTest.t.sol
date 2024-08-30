@@ -284,7 +284,11 @@ contract RiftExchangeTest is Test {
         console.log("Amount trying to reserve:", amountsToReserve[0]);
 
         uint256 gasBefore = gasleft();
+        // usdt balance before
+        console.log("USDT balance before reservation:", usdt.balanceOf(testAddress));
         riftExchange.reserveLiquidity(vaultIndexesToReserve, amountsToReserve, ethPayoutAddress, empty);
+        // usdt balance after
+        console.log("USDT balance after reservation:", usdt.balanceOf(testAddress));
         uint256 gasUsed = gasBefore - gasleft();
         console.log("Gas used for reservation:", gasUsed);
 
@@ -466,7 +470,7 @@ contract RiftExchangeTest is Test {
         vm.stopPrank();
     }
 
-    //--------- WITHDRAW TESTS ---------//
+    // //--------- WITHDRAW TESTS ---------//
 
     function testWithdrawLiquidity() public {
         // setup
@@ -512,7 +516,7 @@ contract RiftExchangeTest is Test {
         vm.stopPrank();
     }
 
-    //--------- UPDATE EXCHANGE RATE TESTS --------- //
+    // //--------- UPDATE EXCHANGE RATE TESTS --------- //
 
     function testUpdateExchangeRate() public {
         // setup
