@@ -41,6 +41,7 @@ contract RiftExchangeTest is Test {
 
     function setUp() public {
         bytes32 initialBlockHash = bytes32(0x00000000000000000002da2dfb440c17bb561ff83ec1e88cd9433e062e5388bc);
+        bytes32 initialRetargetBlockHash = hex"00ca6cebffbb631e1dcb7588151f5cd92b1fd99c85e065030307de4c677b6dba";
         uint256 initialCheckpointHeight = 845690;
         address verifierContractAddress = address(0x123);
 
@@ -53,12 +54,15 @@ contract RiftExchangeTest is Test {
         riftExchange = new RiftExchange(
             initialCheckpointHeight,
             initialBlockHash,
+            initialRetargetBlockHash,
             verifierContractAddress,
             address(usdt),
             proverReward,
             releaserReward,
             protocolAddress,
-            protocolAddress
+            protocolAddress,
+            hex"00ca6cebffbb631e1dcb7588151f5cd92b1fd99c85e065030307de4c677b6dba"
+
         );
     }
 

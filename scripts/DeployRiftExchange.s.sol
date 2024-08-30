@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import "../src/RiftExchange.sol";
-import {UltraVerifier} from "../src/verifiers/RiftPlonkVerification.sol";
 
 contract DeployRiftExchange is Script {
     function run() external {
@@ -12,18 +11,15 @@ contract DeployRiftExchange is Script {
 
         console.log("Starting deployment...");
 
-        // Deploy UltraVerifier
-        console.log("Deploying UltraVerifier...");
-        UltraVerifier verifier = new UltraVerifier();
-        console.log("Verifier deployed at:", address(verifier));
-
         // Define the constructor arguments
         uint256 initialCheckpointHeight = 0;
         bytes32 initialBlockHash = bytes32(0);
-        address verifierContractAddress = address(verifier);
+        bytes32 initialRetargetBlockHash = hex"00ca6cebffbb631e1dcb7588151f5cd92b1fd99c85e065030307de4c677b6dba";
+        address verifierContractAddress = address(0x01);
         address depositTokenAddress = address(0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0);
         uint256 proverReward = 5 * 10 ** 6; // 5 USDT
         uint256 releaserReward = 2 * 10 ** 6; // 2 USDT
+        bytes32 verificationKeyHash = hex"00ca6cebffbb631e1dcb7588151f5cd92b1fd99c85e065030307de4c677b6dba";
         address payable protocolAddress = payable(address(1));
         address owner = msg.sender;
 
@@ -41,12 +37,14 @@ contract DeployRiftExchange is Script {
             new RiftExchange(
                 initialCheckpointHeight,
                 initialBlockHash,
+                initialRetargetBlockHash,
                 verifierContractAddress,
                 depositTokenAddress,
                 proverReward,
                 releaserReward,
                 protocolAddress,
-                owner
+                owner,
+                verificationKeyHash
             )
         returns (RiftExchange riftExchange) {
             console.log("RiftExchange deployed at:", address(riftExchange));

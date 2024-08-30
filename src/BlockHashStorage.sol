@@ -14,9 +14,10 @@ contract BlockHashStorage {
     uint256 public currentHeight;
     uint256 public currentConfirmationHeight;
 
-    constructor(uint256 safeBlockHeight, bytes32 blockHash) {
+    constructor(uint256 safeBlockHeight, bytes32 blockHash, bytes32 retargetBlockHash) {
         currentHeight = safeBlockHeight;
         blockchain[safeBlockHeight] = blockHash;
+        blockchain[calculateRetargetHeight(uint64(safeBlockHeight))] = retargetBlockHash;
     }
 
     // TODO: make this interanal after testing
