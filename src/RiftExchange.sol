@@ -120,6 +120,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     constructor(
         uint256 initialCheckpointHeight,
         bytes32 initialBlockHash,
+        bytes32 initialRetargetBlockHash,
         address verifierContractAddress,
         address depositTokenAddress,
         uint256 _proverReward,
@@ -127,7 +128,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         address payable _protocolAddress,
         address _owner,
         bytes32 _circuitVerificationKey
-    ) BlockHashStorage(initialCheckpointHeight, initialBlockHash) Owned(_owner) {
+    ) BlockHashStorage(initialCheckpointHeight, initialBlockHash, initialRetargetBlockHash) Owned(_owner) {
         // [0] set verifier contract and deposit token
         circuitVerificationKey = _circuitVerificationKey;
         verifierContract = ISP1Verifier(verifierContractAddress);

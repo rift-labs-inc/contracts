@@ -14,6 +14,7 @@ contract DeployRiftExchange is Script {
         // Define the constructor arguments
         uint256 initialCheckpointHeight = 0;
         bytes32 initialBlockHash = bytes32(0);
+        bytes32 initialRetargetBlockHash = hex"00ca6cebffbb631e1dcb7588151f5cd92b1fd99c85e065030307de4c677b6dba";
         address verifierContractAddress = address(0x01);
         address depositTokenAddress = address(0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0);
         bytes32 verificationKeyHash = hex"00ca6cebffbb631e1dcb7588151f5cd92b1fd99c85e065030307de4c677b6dba";
@@ -36,6 +37,7 @@ contract DeployRiftExchange is Script {
             new RiftExchange(
                 initialCheckpointHeight,
                 initialBlockHash,
+                initialRetargetBlockHash,
                 verifierContractAddress,
                 depositTokenAddress,
                 proverReward,
