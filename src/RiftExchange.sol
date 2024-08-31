@@ -30,7 +30,6 @@ error NotEnoughLiquidity();
 error ReservationAmountTooLow();
 error InvalidOrder();
 error NotEnoughLiquidityConsumed();
-error LiquidityReserved(uint256 unlockTime);
 error LiquidityNotReserved();
 error InvalidLpIndex();
 error NoLiquidityToReserve();
@@ -67,6 +66,12 @@ contract RiftExchange is BlockHashStorage, Owned {
     uint8 public protocolFeeBP = 10; // 10 bps = 0.1%
     uint256 public proverReward;
     uint256 public releaserReward;
+
+    event LiquidityReserved(
+      address indexed reserver,
+      uint256 swapReservationIndex,
+      bytes32 orderNonce
+    );
 
     struct LPunreservedBalanceChange {
         uint256 vaultIndex;
@@ -475,6 +480,8 @@ contract RiftExchange is BlockHashStorage, Owned {
             // [8] reset prepaid fee amount to 0 so its not subtracted again during release
             swapReservation.prepaidFeeAmount = 0;
         }
+        
+        emit LiquidityReserved(msg.sender, swapReservationIndex, swapReservation.nonce);
     }
 
     function releaseLiquidity(uint256 swapReservationIndex) public {
