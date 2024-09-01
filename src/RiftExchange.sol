@@ -73,6 +73,17 @@ contract RiftExchange is BlockHashStorage, Owned {
       bytes32 orderNonce
     );
 
+    event SwapComplete(
+      uint256 swapReservationIndex,
+      bytes32 orderNonce
+    );
+
+    event ProofProposed(
+      address indexed prover,
+      uint256 swapReservationIndex,
+      bytes32 orderNonce
+    );
+
     struct LPunreservedBalanceChange {
         uint256 vaultIndex;
         uint256 value;
@@ -391,6 +402,14 @@ contract RiftExchange is BlockHashStorage, Owned {
 
         // transfer protocol fee
         DEPOSIT_TOKEN.transfer(protocolAddress, protocolFee);
+
+        emit LiquidityReserved(
+          msg.sender,
+          getReservationLength()-1,
+          keccak256(
+            abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length)
+          )
+        );
     }
 
     function hashToFieldUpper(bytes32 data) internal pure returns (bytes32) {
@@ -480,8 +499,9 @@ contract RiftExchange is BlockHashStorage, Owned {
             // [8] reset prepaid fee amount to 0 so its not subtracted again during release
             swapReservation.prepaidFeeAmount = 0;
         }
+
+        emit ProofProposed(msg.sender, swapReservationIndex, swapReservation.nonce);
         
-        emit LiquidityReserved(msg.sender, swapReservationIndex, swapReservation.nonce);
     }
 
     function releaseLiquidity(uint256 swapReservationIndex) public {
@@ -523,6 +543,8 @@ contract RiftExchange is BlockHashStorage, Owned {
 
         // [10] mark swap reservation as completed
         swapReservation.state = ReservationState.Completed;
+
+        emit SwapComplete(swapReservationIndex, swapReservation.nonce);
     }
 
     function updateRewards(uint256 newProverReward, uint256 newReleaserReward) public onlyOwner {
