@@ -62,7 +62,6 @@ contract RiftExchangeTest is Test {
             protocolAddress,
             protocolAddress,
             hex"00ca6cebffbb631e1dcb7588151f5cd92b1fd99c85e065030307de4c677b6dba"
-
         );
     }
 
@@ -290,7 +289,14 @@ contract RiftExchangeTest is Test {
         uint256 gasBefore = gasleft();
         // usdt balance before
         console.log("USDT balance before reservation:", usdt.balanceOf(testAddress));
-        riftExchange.reserveLiquidity(vaultIndexesToReserve, amountsToReserve, ethPayoutAddress, empty);
+        uint256 demoTotalSatsInput = 10000;
+        riftExchange.reserveLiquidity(
+            vaultIndexesToReserve,
+            amountsToReserve,
+            ethPayoutAddress,
+            demoTotalSatsInput,
+            empty
+        );
         // usdt balance after
         console.log("USDT balance after reservation:", usdt.balanceOf(testAddress));
         uint256 gasUsed = gasBefore - gasleft();
@@ -352,7 +358,14 @@ contract RiftExchangeTest is Test {
 
         for (uint i = 0; i < numReservations; i++) {
             uint256 gasBefore = gasleft();
-            riftExchange.reserveLiquidity(vaultIndexesToReserve, amountsToReserve, testAddress, empty);
+            uint256 demoTotalSatsInput = 10000;
+            riftExchange.reserveLiquidity(
+                vaultIndexesToReserve,
+                amountsToReserve,
+                testAddress,
+                demoTotalSatsInput,
+                empty
+            );
             uint256 gasUsed = gasBefore - gasleft();
             totalGasUsed += gasUsed;
 
@@ -416,10 +429,12 @@ contract RiftExchangeTest is Test {
             uint256[] memory emptyExpiredReservations = new uint256[](0);
 
             uint256 gasBefore = gasleft();
+            uint256 demoTotalSatsInput = 10000;
             riftExchange.reserveLiquidity(
                 vaultIndexesToReserve,
                 amountsToReserve,
                 testAddress,
+                demoTotalSatsInput,
                 emptyExpiredReservations
             );
             uint256 gasUsed = gasBefore - gasleft();
@@ -449,8 +464,8 @@ contract RiftExchangeTest is Test {
         uint192[] memory amountsToReserve = new uint192[](1);
         amountsToReserve[0] = 1_000_000e6; // 1 million USDT
         uint256[] memory empty = new uint256[](0);
-
-        riftExchange.reserveLiquidity(vaultIndexesToReserve, amountsToReserve, testAddress, empty);
+        uint256 demoTotalSatsInput = 10000;
+        riftExchange.reserveLiquidity(vaultIndexesToReserve, amountsToReserve, testAddress, demoTotalSatsInput, empty);
 
         // simulate reservation expiration
         vm.warp(block.timestamp + 8 hours + 1);
@@ -463,6 +478,7 @@ contract RiftExchangeTest is Test {
             vaultIndexesToReserve,
             amountsToReserve,
             newEthPayoutAddress,
+            demoTotalSatsInput,
             expiredSwapReservationIndexes
         );
 
@@ -575,7 +591,14 @@ contract RiftExchangeTest is Test {
         vaultIndexesToReserve[0] = globalVaultIndex;
         uint192[] memory amountsToReserve = new uint192[](1);
         amountsToReserve[0] = 1_000_000e6; // 1 million USDT
-        riftExchange.reserveLiquidity(vaultIndexesToReserve, amountsToReserve, testAddress, expiredReservationIndexes);
+        uint256 demoTotalSatsInput = 10000;
+        riftExchange.reserveLiquidity(
+            vaultIndexesToReserve,
+            amountsToReserve,
+            testAddress,
+            demoTotalSatsInput,
+            expiredReservationIndexes
+        );
 
         vm.expectRevert(INVALID_UPDATE_WITH_ACTIVE_RESERVATIONS);
         riftExchange.updateExchangeRate(globalVaultIndex, localVaultIndex, 60, expiredReservationIndexes);
