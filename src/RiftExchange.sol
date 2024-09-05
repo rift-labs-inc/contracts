@@ -67,22 +67,11 @@ contract RiftExchange is BlockHashStorage, Owned {
     uint256 public proverReward;
     uint256 public releaserReward;
 
-    event LiquidityReserved(
-      address indexed reserver,
-      uint256 swapReservationIndex,
-      bytes32 orderNonce
-    );
+    event LiquidityReserved(address indexed reserver, uint256 swapReservationIndex, bytes32 orderNonce);
 
-    event SwapComplete(
-      uint256 swapReservationIndex,
-      bytes32 orderNonce
-    );
+    event SwapComplete(uint256 swapReservationIndex, bytes32 orderNonce);
 
-    event ProofProposed(
-      address indexed prover,
-      uint256 swapReservationIndex,
-      bytes32 orderNonce
-    );
+    event ProofProposed(address indexed prover, uint256 swapReservationIndex, bytes32 orderNonce);
 
     struct LPunreservedBalanceChange {
         uint256 vaultIndex;
@@ -117,7 +106,8 @@ contract RiftExchange is BlockHashStorage, Owned {
         address ethPayoutAddress;
         bytes32 lpReservationHash;
         bytes32 nonce; // sent in bitcoin tx calldata from buyer -> lps to prevent replay attacks
-        uint256 totalSwapAmount;
+        uint256 totalSatsInput; // in sats (including proxy wallet fee)
+        uint256 totalSwapAmount; // in token's smallest unit (wei, μUSDT, etc)
         int256 prepaidFeeAmount;
         uint256 proposedBlockHeight;
         bytes32 proposedBlockHash;
@@ -301,6 +291,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint256[] memory vaultIndexesToReserve,
         uint192[] memory amountsToReserve,
         address ethPayoutAddress,
+        uint256 totalSatsInput,
         uint256[] memory expiredSwapReservationIndexes
     ) public {
         // [0] calculate total amount of ETH the user is attempting to reserve
@@ -365,6 +356,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             swapReservationToOverwrite.nonce = keccak256(
                 abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length) // TODO: fully audit nonce attack vector
             );
+            swapReservationToOverwrite.totalSatsInput = totalSatsInput;
             swapReservationToOverwrite.vaultIndexes = vaultIndexesToReserve;
             swapReservationToOverwrite.amountsToReserve = amountsToReserve;
             swapReservationToOverwrite.lpReservationHash = vaultHash;
@@ -383,6 +375,7 @@ contract RiftExchange is BlockHashStorage, Owned {
                     nonce: keccak256(
                         abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length)
                     ), // TODO: fully audit nonce attack vector
+                    totalSatsInput: totalSatsInput,
                     proposedBlockHeight: 0,
                     proposedBlockHash: bytes32(0),
                     lpReservationHash: vaultHash,
@@ -404,11 +397,9 @@ contract RiftExchange is BlockHashStorage, Owned {
         DEPOSIT_TOKEN.transfer(protocolAddress, protocolFee);
 
         emit LiquidityReserved(
-          msg.sender,
-          getReservationLength()-1,
-          keccak256(
-            abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length)
-          )
+            msg.sender,
+            getReservationLength() - 1,
+            keccak256(abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length))
         );
     }
 
@@ -435,7 +426,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     function buildProofPublicInputs(ProofPublicInputs memory inputs) public pure returns (bytes memory) {
-      return abi.encode(inputs);
+        return abi.encode(inputs);
     }
 
     function proposeTransactionProof(
@@ -471,7 +462,13 @@ contract RiftExchange is BlockHashStorage, Owned {
         verifierContract.verifyProof(circuitVerificationKey, publicInputs, proof);
 
         // [2] add verified block to block header storage contract
-        addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, proposedBlockHeight - safeBlockHeight);
+        addBlock(
+            safeBlockHeight,
+            proposedBlockHeight,
+            confirmationBlockHeight,
+            blockHashes,
+            proposedBlockHeight - safeBlockHeight
+        );
 
         // [3] set confirmation block height in swap reservation
         // swapReservation.confirmationBlockHeight = safeBlockHeight;
@@ -501,7 +498,6 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
 
         emit ProofProposed(msg.sender, swapReservationIndex, swapReservation.nonce);
-        
     }
 
     function releaseLiquidity(uint256 swapReservationIndex) public {
