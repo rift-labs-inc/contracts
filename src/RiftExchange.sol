@@ -106,8 +106,8 @@ contract RiftExchange is BlockHashStorage, Owned {
         address ethPayoutAddress;
         bytes32 lpReservationHash;
         bytes32 nonce; // sent in bitcoin tx calldata from buyer -> lps to prevent replay attacks
-        uint256 totalSatsInput; // in sats (including proxy wallet fee)
-        uint256 totalSwapAmount; // in token's smallest unit (wei, μUSDT, etc)
+        uint256 totalSatsInputInlcudingProxyFee; // in sats (including proxy wallet fee)
+        uint256 totalSwapOutputAmount; // in token's smallest unit (wei, μUSDT, etc)
         int256 prepaidFeeAmount;
         uint256 proposedBlockHeight;
         bytes32 proposedBlockHash;
@@ -291,7 +291,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint256[] memory vaultIndexesToReserve,
         uint192[] memory amountsToReserve,
         address ethPayoutAddress,
-        uint256 totalSatsInput,
+        uint256 totalSatsInputInlcudingProxyFee,
         uint256[] memory expiredSwapReservationIndexes
     ) public {
         // [0] calculate total amount of ETH the user is attempting to reserve
@@ -352,11 +352,11 @@ contract RiftExchange is BlockHashStorage, Owned {
             // swapReservationToOverwrite.confirmationBlockHeight = 0;
             swapReservationToOverwrite.unlockTimestamp = 0;
             swapReservationToOverwrite.prepaidFeeAmount = int256(proverFee + releaserFee);
-            swapReservationToOverwrite.totalSwapAmount = combinedAmountsToReserve;
+            swapReservationToOverwrite.totalSwapOutputAmount = combinedAmountsToReserve;
             swapReservationToOverwrite.nonce = keccak256(
                 abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length) // TODO: fully audit nonce attack vector
             );
-            swapReservationToOverwrite.totalSatsInput = totalSatsInput;
+            swapReservationToOverwrite.totalSatsInputInlcudingProxyFee = totalSatsInputInlcudingProxyFee;
             swapReservationToOverwrite.vaultIndexes = vaultIndexesToReserve;
             swapReservationToOverwrite.amountsToReserve = amountsToReserve;
             swapReservationToOverwrite.lpReservationHash = vaultHash;
@@ -370,12 +370,12 @@ contract RiftExchange is BlockHashStorage, Owned {
                     ethPayoutAddress: ethPayoutAddress,
                     reservationTimestamp: uint32(block.timestamp),
                     unlockTimestamp: 0,
-                    totalSwapAmount: combinedAmountsToReserve,
+                    totalSwapOutputAmount: combinedAmountsToReserve,
                     prepaidFeeAmount: int256(proverFee + releaserFee),
                     nonce: keccak256(
                         abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length)
                     ), // TODO: fully audit nonce attack vector
-                    totalSatsInput: totalSatsInput,
+                    totalSatsInputInlcudingProxyFee: totalSatsInputInlcudingProxyFee,
                     proposedBlockHeight: 0,
                     proposedBlockHash: bytes32(0),
                     lpReservationHash: vaultHash,
@@ -447,7 +447,7 @@ contract RiftExchange is BlockHashStorage, Owned {
                 natural_txid: bitcoinTxId,
                 lp_reservation_hash: swapReservation.lpReservationHash,
                 order_nonce: swapReservation.nonce,
-                expected_payout: uint64(swapReservation.totalSwapAmount),
+                expected_payout: uint64(swapReservation.totalSwapOutputAmount),
                 lp_count: uint64(swapReservation.vaultIndexes.length),
                 retarget_block_hash: getBlockHash(calculateRetargetHeight(proposedBlockHeight)),
                 safe_block_height: safeBlockHeight,
@@ -491,7 +491,7 @@ contract RiftExchange is BlockHashStorage, Owned {
 
         // [7] if prepaid fee amount is negative, subtract from total swap amount
         if (swapReservation.prepaidFeeAmount < 0) {
-            swapReservation.totalSwapAmount += uint256(swapReservation.prepaidFeeAmount);
+            swapReservation.totalSwapOutputAmount += uint256(swapReservation.prepaidFeeAmount);
 
             // [8] reset prepaid fee amount to 0 so its not subtracted again during release
             swapReservation.prepaidFeeAmount = 0;
@@ -528,14 +528,14 @@ contract RiftExchange is BlockHashStorage, Owned {
 
         // [7] if prepaid fee amount is negative, subtract from total swap amount
         if (swapReservation.prepaidFeeAmount < 0) {
-            swapReservation.totalSwapAmount += uint256(swapReservation.prepaidFeeAmount);
+            swapReservation.totalSwapOutputAmount += uint256(swapReservation.prepaidFeeAmount);
 
             // [8] reset prepaid fee amount to 0 (perhaps unnecessary)
             swapReservation.prepaidFeeAmount = 0;
         }
 
         // [9] release funds to buyers ETH payout address
-        DEPOSIT_TOKEN.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapAmount);
+        DEPOSIT_TOKEN.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapOutputAmount);
 
         // [10] mark swap reservation as completed
         swapReservation.state = ReservationState.Completed;

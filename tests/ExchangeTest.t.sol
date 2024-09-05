@@ -307,7 +307,7 @@ contract RiftExchangeTest is Test {
 
         // assertions
         assertEq(reservation.ethPayoutAddress, ethPayoutAddress, "ETH payout address should match");
-        assertEq(reservation.totalSwapAmount, uint256(amountsToReserve[0]), "Total swap amount should match");
+        assertEq(reservation.totalSwapOutputAmount, uint256(amountsToReserve[0]), "Total swap amount should match");
 
         // validate balances and state changes
         uint256 remainingBalance = riftExchange.getDepositVaultUnreservedBalance(0);
@@ -485,7 +485,11 @@ contract RiftExchangeTest is Test {
         // Verify the reservation overwrite
         RiftExchange.SwapReservation memory overwrittenReservation = riftExchange.getReservation(0);
         assertEq(overwrittenReservation.ethPayoutAddress, newEthPayoutAddress, "ETH payout address should match");
-        assertEq(overwrittenReservation.totalSwapAmount, uint256(amountsToReserve[0]), "Reserved amount should match");
+        assertEq(
+            overwrittenReservation.totalSwapOutputAmount,
+            uint256(amountsToReserve[0]),
+            "Reserved amount should match"
+        );
 
         vm.stopPrank();
     }
