@@ -76,7 +76,8 @@ sparse_mode = false
 access = "read-write"
 path = "./"
 
-[profile.default.rpc_endpoints]
-optimism = "https://optimism.alchemyapi.io/v2/..."
-mainnet = "${RPC_MAINNET}"
+[rpc_endpoints]
 sepolia = "${SEPOLIA_RPC_URL}"
+
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
