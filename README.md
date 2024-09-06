@@ -1,7 +1,7 @@
 # contracts
 
-### Deploy
+### Deploy to Rift Exchange to Sepolia
 ```
-source .env && forge script --chain sepolia scripts/DeployRiftExchange.s.sol:DeployRiftExchange --rpc-url $SEPOLIA_RPC_URL --broadcast --sender $SEPOLIA_SENDER --private-key $SEPOLIA_PRIVATE_KEY --verify --etherscan-api-key $ETHERSCAN_API_KEY 
+source .env && forge script --chain sepolia scripts/DeployRiftExchange.s.sol:DeployRiftExchange --rpc-url $SEPOLIA_RPC_URL --broadcast --sender $SEPOLIA_SENDER --private-key $SEPOLIA_PRIVATE_KEY --verify --etherscan-api-key $ETHERSCAN_API_KEY --ffi -vvvv
 ```
 
