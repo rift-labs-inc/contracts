@@ -14,6 +14,8 @@ contract BlockHashStorage {
     uint256 public currentHeight;
     uint256 public currentConfirmationHeight;
 
+    event BlocksAdded(uint256 startBlockHeight, uint256 count);
+
     constructor(uint256 safeBlockHeight, bytes32 blockHash, bytes32 retargetBlockHash) {
         currentHeight = safeBlockHeight;
         blockchain[safeBlockHeight] = blockHash;
@@ -75,6 +77,8 @@ contract BlockHashStorage {
         if (proposedBlockHeight > currentHeight) {
             currentHeight = proposedBlockHeight;
         }
+
+        emit BlocksAdded(safeBlockHeight, blockHashes.length);
     }
 
     function validateBlockExists(uint256 blockHeight) public view {
