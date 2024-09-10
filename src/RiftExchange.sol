@@ -327,7 +327,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             // [0] retrieve deposit vault
             vaultHash = sha256(
                 abi.encode(
-                    amountsToReserve[i],
+                    bufferTo18Decimals(amountsToReserve[i], TOKEN_DECIMALS),
                     depositVaults[vaultIndexesToReserve[i]].exchangeRate,
                     depositVaults[vaultIndexesToReserve[i]].btcPayoutLockingScript,
                     vaultHash
@@ -341,7 +341,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
 
         bytes32 orderNonce = keccak256(
-          abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length) // TODO: fully audit nonce attack vector
+            abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length) // TODO: fully audit nonce attack vector
         );
 
         // [6] overwrite expired reservations if any slots are available
@@ -396,11 +396,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         // transfer protocol fee
         DEPOSIT_TOKEN.transfer(protocolAddress, protocolFee);
 
-        emit LiquidityReserved(
-            msg.sender,
-            getReservationLength() - 1,
-            orderNonce
-        );
+        emit LiquidityReserved(msg.sender, getReservationLength() - 1, orderNonce);
     }
 
     function hashToFieldUpper(bytes32 data) internal pure returns (bytes32) {
@@ -617,6 +613,13 @@ contract RiftExchange is BlockHashStorage, Owned {
                 revert ReservationNotExpired();
             }
         }
+    }
+
+    function bufferTo18Decimals(uint256 amount, uint8 tokenDecimals) internal pure returns (uint256) {
+        if (tokenDecimals < 18) {
+            return amount * (10 ** (18 - tokenDecimals));
+        }
+        return amount;
     }
 
     // --------- TESTING FUNCTIONS (TODO: DELETE) --------- //
