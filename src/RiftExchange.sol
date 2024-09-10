@@ -340,6 +340,10 @@ contract RiftExchange is BlockHashStorage, Owned {
             }
         }
 
+        bytes32 orderNonce = keccak256(
+          abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length) // TODO: fully audit nonce attack vector
+        );
+
         // [6] overwrite expired reservations if any slots are available
         if (expiredSwapReservationIndexes.length > 0) {
             // [1] retrieve expired reservation
@@ -353,9 +357,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             swapReservationToOverwrite.unlockTimestamp = 0;
             swapReservationToOverwrite.prepaidFeeAmount = int256(proverFee + releaserFee);
             swapReservationToOverwrite.totalSwapOutputAmount = combinedAmountsToReserve;
-            swapReservationToOverwrite.nonce = keccak256(
-                abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length) // TODO: fully audit nonce attack vector
-            );
+            swapReservationToOverwrite.nonce = orderNonce;
             swapReservationToOverwrite.totalSatsInputInlcudingProxyFee = totalSatsInputInlcudingProxyFee;
             swapReservationToOverwrite.vaultIndexes = vaultIndexesToReserve;
             swapReservationToOverwrite.amountsToReserve = amountsToReserve;
@@ -372,9 +374,7 @@ contract RiftExchange is BlockHashStorage, Owned {
                     unlockTimestamp: 0,
                     totalSwapOutputAmount: combinedAmountsToReserve,
                     prepaidFeeAmount: int256(proverFee + releaserFee),
-                    nonce: keccak256(
-                        abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length)
-                    ), // TODO: fully audit nonce attack vector
+                    nonce: orderNonce,
                     totalSatsInputInlcudingProxyFee: totalSatsInputInlcudingProxyFee,
                     proposedBlockHeight: 0,
                     proposedBlockHash: bytes32(0),
@@ -399,7 +399,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         emit LiquidityReserved(
             msg.sender,
             getReservationLength() - 1,
-            keccak256(abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length))
+            orderNonce
         );
     }
 
