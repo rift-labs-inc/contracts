@@ -17,11 +17,8 @@ contract DeployRiftExchange is Script {
         }
         return result;
     }
-    
-   function _substring(string memory _base, int _length, int _offset)
-        internal
-        pure 
-        returns (string memory) {
+
+    function _substring(string memory _base, int _length, int _offset) internal pure returns (string memory) {
         bytes memory _baseBytes = bytes(_base);
 
         assert(uint(_offset + _length) <= _baseBytes.length);
@@ -37,35 +34,39 @@ contract DeployRiftExchange is Script {
         return string(_tmpBytes);
     }
 
-  function fetchBlockHeight() public returns (uint256) {
+    function fetchBlockHeight() public returns (uint256) {
         // Prepare the curl command with jq
         string[] memory curlInputs = new string[](3);
         curlInputs[0] = "bash";
         curlInputs[1] = "-c";
-        curlInputs[2] = string(abi.encodePacked(
-            "curl --data-binary '{\"jsonrpc\": \"1.0\", \"id\": \"curltest\", \"method\": \"getblockchaininfo\", \"params\": []}' ",
-            "-H 'content-type: text/plain;' -s ",
-            vm.envString("BITCOIN_RPC"),
-            " | jq -r '.result.blocks'"
-        ));
+        curlInputs[2] = string(
+            abi.encodePacked(
+                'curl --data-binary \'{"jsonrpc": "1.0", "id": "curltest", "method": "getblockchaininfo", "params": []}\' ',
+                "-H 'content-type: text/plain;' -s ",
+                vm.envString("BITCOIN_RPC"),
+                " | jq -r '.result.blocks'"
+            )
+        );
         string memory _blockHeightStr = vm.toString(vm.ffi(curlInputs));
-        string memory blockHeightStr =  _substring(_blockHeightStr, int(bytes(_blockHeightStr).length)-2, 2);
+        string memory blockHeightStr = _substring(_blockHeightStr, int(bytes(_blockHeightStr).length) - 2, 2);
         uint256 blockHeight = stringToUint(blockHeightStr);
         return blockHeight;
-  }
+    }
 
     function fetchBlockHash(uint256 height) public returns (bytes32) {
         string memory heightStr = vm.toString(height);
         string[] memory curlInputs = new string[](3);
         curlInputs[0] = "bash";
         curlInputs[1] = "-c";
-        curlInputs[2] = string(abi.encodePacked(
-            "curl --data-binary '{\"jsonrpc\": \"1.0\", \"id\": \"curltest\", \"method\": \"getblockhash\", \"params\": [",
-            heightStr,
-            "]}' -H 'content-type: text/plain;' -s ",
-            vm.envString("BITCOIN_RPC"),
-            " | jq -r '.result'"
-        ));
+        curlInputs[2] = string(
+            abi.encodePacked(
+                'curl --data-binary \'{"jsonrpc": "1.0", "id": "curltest", "method": "getblockhash", "params": [',
+                heightStr,
+                "]}' -H 'content-type: text/plain;' -s ",
+                vm.envString("BITCOIN_RPC"),
+                " | jq -r '.result'"
+            )
+        );
         bytes memory result = vm.ffi(curlInputs);
         return bytes32(result);
     }
@@ -88,8 +89,8 @@ contract DeployRiftExchange is Script {
         // Define the constructor arguments
         address verifierContractAddress = address(0x3B6041173B80E77f038f3F2C0f9744f04837185e);
         address depositTokenAddress = address(0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0);
-        uint256 proverReward = 5 * 10 ** 6; // 5 USDT
-        uint256 releaserReward = 2 * 10 ** 6; // 2 USDT
+        uint256 proverReward = 2 * 10 ** 6; // 2 USDT
+        uint256 releaserReward = 1 * 10 ** 6; // 1 USDT
         bytes32 verificationKeyHash = hex"00bfe50d803b9b4aee4318e822079e5165b4413ecc9d81e194eeef3e3b4afeab";
         address payable protocolAddress = payable(address(0x9FEEf1C10B8cD9Bc6c6B6B44ad96e07F805decaf));
         address owner = msg.sender;
