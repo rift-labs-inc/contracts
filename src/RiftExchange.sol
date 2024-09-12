@@ -99,6 +99,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     struct SwapReservation {
+        address owner;
         uint32 confirmationBlockHeight;
         uint32 reservationTimestamp;
         uint32 unlockTimestamp; // timestamp when reservation was proven and unlocked
@@ -350,6 +351,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             SwapReservation storage swapReservationToOverwrite = swapReservations[expiredSwapReservationIndexes[0]];
 
             // [2] overwrite expired reservation
+            swapReservationToOverwrite.owner = msg.sender;
             swapReservationToOverwrite.state = ReservationState.Created;
             swapReservationToOverwrite.ethPayoutAddress = ethPayoutAddress;
             swapReservationToOverwrite.reservationTimestamp = uint32(block.timestamp);
@@ -367,6 +369,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         else {
             swapReservations.push(
                 SwapReservation({
+                    owner: msg.sender,
                     state: ReservationState.Created,
                     confirmationBlockHeight: 0,
                     ethPayoutAddress: ethPayoutAddress,
