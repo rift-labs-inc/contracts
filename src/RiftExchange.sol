@@ -426,7 +426,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes32 natural_txid;
         bytes32 lp_reservation_hash;
         bytes32 order_nonce;
-        uint64 expected_payout;
+        uint256 expected_payout;
         uint64 lp_count;
         bytes32 retarget_block_hash;
         uint64 safe_block_height;
@@ -452,13 +452,21 @@ contract RiftExchange is BlockHashStorage, Owned {
         // [0] retrieve swap order
         SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
 
+        uint256 bufferedAmountsToReserve = 0;
+        for (uint256 i = 0; i < swapReservation.amountsToReserve.length; i++) {
+            uint256 bufferedAmount = bufferTo18Decimals(swapReservation.amountsToReserve[i], TOKEN_DECIMALS);
+            uint256 exchangeRate = depositVaults[swapReservation.vaultIndexes[i]].exchangeRate;
+            uint256 satsAmount = weiToSats(bufferedAmount, exchangeRate);
+            bufferedAmountsToReserve += satsToWei(satsAmount, exchangeRate);
+        }
+
         // build proof public inputs
         bytes memory publicInputs = buildProofPublicInputs(
             ProofPublicInputs({
                 natural_txid: bitcoinTxId,
                 lp_reservation_hash: swapReservation.lpReservationHash,
                 order_nonce: swapReservation.nonce,
-                expected_payout: uint64(swapReservation.totalSwapOutputAmount),
+                expected_payout: bufferedAmountsToReserve,
                 lp_count: uint64(swapReservation.vaultIndexes.length),
                 retarget_block_hash: getBlockHash(calculateRetargetHeight(proposedBlockHeight)),
                 safe_block_height: safeBlockHeight,
