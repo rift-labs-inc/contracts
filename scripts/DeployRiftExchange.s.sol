@@ -91,7 +91,7 @@ contract DeployRiftExchange is Script {
         address depositTokenAddress = address(0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0);
         uint256 proverReward = 2 * 10 ** 6; // 2 USDT
         uint256 releaserReward = 1 * 10 ** 6; // 1 USDT
-        bytes32 verificationKeyHash = hex"00bfe50d803b9b4aee4318e822079e5165b4413ecc9d81e194eeef3e3b4afeab";
+        bytes32 verificationKeyHash = hex"00ceafd1f633bae8a577468d4981b0812837a27e1652017199d87b836d71280a";
         address payable protocolAddress = payable(address(0x9FEEf1C10B8cD9Bc6c6B6B44ad96e07F805decaf));
         address owner = msg.sender;
 
