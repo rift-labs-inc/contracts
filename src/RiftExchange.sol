@@ -313,6 +313,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             uint256 satsAmount = weiToSats(bufferedAmount, exchangeRate);
             combinedAmountsToReserve += satsToWei(satsAmount, exchangeRate);
         }
+        combinedAmountsToReserve = unbufferFrom18Decimals(combinedAmountsToReserve, TOKEN_DECIMALS);
 
         // [1] calculate fees
         console.log("combinedAmountsToReserve: ", combinedAmountsToReserve);
@@ -627,6 +628,13 @@ contract RiftExchange is BlockHashStorage, Owned {
                 revert ReservationNotExpired();
             }
         }
+    }
+
+    function unbufferFrom18Decimals(uint256 amount, uint8 tokenDecimals) internal pure returns (uint256) {
+        if (tokenDecimals < 18) {
+            return amount / (10 ** (18 - tokenDecimals));
+        }
+        return amount;
     }
 
     function bufferTo18Decimals(uint256 amount, uint8 tokenDecimals) internal pure returns (uint256) {
