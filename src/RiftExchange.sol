@@ -287,6 +287,14 @@ contract RiftExchange is BlockHashStorage, Owned {
         DEPOSIT_TOKEN.transfer(msg.sender, amountToWithdraw);
     }
 
+    function weiToSats(uint256 weiAmount, uint256 weiSatsExchangeRate) internal pure returns (uint256) {
+        return weiAmount / weiSatsExchangeRate;
+    }
+
+    function satsToWei(uint256 satsAmount, uint256 weiSatsExchangeRate) internal pure returns (uint256) {
+        return satsAmount * weiSatsExchangeRate;
+    }
+
     function reserveLiquidity(
         uint256[] memory vaultIndexesToReserve,
         uint192[] memory amountsToReserve,
@@ -294,10 +302,16 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint256 totalSatsInputInlcudingProxyFee,
         uint256[] memory expiredSwapReservationIndexes
     ) public {
+
         // [0] calculate total amount of ETH the user is attempting to reserve
+        // TODO: This is a temporary solution, ideally the amountsToReserve don't need to be recalculated
+        // ( to handle integer div precision loss) to determine the total amount of ETH the user is attempting to reserve 
         uint256 combinedAmountsToReserve = 0;
-        for (uint i = 0; i < amountsToReserve.length; i++) {
-            combinedAmountsToReserve += amountsToReserve[i];
+        for (uint256 i = 0; i < amountsToReserve.length; i++) {
+            uint256 bufferedAmount = bufferTo18Decimals(amountsToReserve[i], TOKEN_DECIMALS);
+            uint256 exchangeRate = depositVaults[vaultIndexesToReserve[i]].exchangeRate;
+            uint256 satsAmount = weiToSats(bufferedAmount, exchangeRate);
+            combinedAmountsToReserve += satsToWei(satsAmount, exchangeRate);
         }
 
         // [1] calculate fees
