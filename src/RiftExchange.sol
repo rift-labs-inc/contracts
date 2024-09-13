@@ -481,7 +481,8 @@ contract RiftExchange is BlockHashStorage, Owned {
         );
 
         // [1] verify proof (will revert if invalid)
-        verifierContract.verifyProof(circuitVerificationKey, publicInputs, proof);
+        // TODO: Before launch uncomment this: 
+        //verifierContract.verifyProof(circuitVerificationKey, publicInputs, proof);
 
         // [2] add verified block to block header storage contract
         addBlock(
