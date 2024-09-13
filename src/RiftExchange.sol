@@ -481,7 +481,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         );
 
         // [1] verify proof (will revert if invalid)
-        // TODO: Before launch uncomment this: 
+        // TODO: Before launch uncomment this:
         //verifierContract.verifyProof(circuitVerificationKey, publicInputs, proof);
 
         // [2] add verified block to block header storage contract
@@ -664,5 +664,9 @@ contract RiftExchange is BlockHashStorage, Owned {
         vault.unreservedBalance = 0;
         vault.exchangeRate = 0;
         vault.btcPayoutLockingScript = "";
+    }
+
+    function setSwapReservationState(uint256 swapReservationIndex, ReservationState state) public {
+        swapReservations[swapReservationIndex].state = state;
     }
 }
