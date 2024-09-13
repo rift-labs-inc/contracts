@@ -303,21 +303,21 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint256 totalSatsInputInlcudingProxyFee,
         uint256[] memory expiredSwapReservationIndexes
     ) public {
-
         // [0] calculate total amount of ETH the user is attempting to reserve
-        // TODO: This is a temporary solution, ideally the amountsToReserve don't need to be recalculated
-        // ( to handle integer div precision loss) to determine the total amount of ETH the user is attempting to reserve 
         uint256 combinedAmountsToReserve = 0;
+        uint256 combinedExpectedSatsOutput = 0;
+        uint256[] memory expectedSatsOutputArray = new uint256[](vaultIndexesToReserve.length);
+
         for (uint256 i = 0; i < amountsToReserve.length; i++) {
-            uint256 bufferedAmount = bufferTo18Decimals(amountsToReserve[i], TOKEN_DECIMALS);
             uint256 exchangeRate = depositVaults[vaultIndexesToReserve[i]].exchangeRate;
-            uint256 satsAmount = weiToSats(bufferedAmount, exchangeRate);
-            combinedAmountsToReserve += satsToWei(satsAmount, exchangeRate);
+            combinedAmountsToReserve += amountsToReserve[i];
+            uint256 bufferedAmountToReserve = bufferTo18Decimals(amountsToReserve[i], TOKEN_DECIMALS);
+            uint256 expectedSatsOutput = bufferedAmountToReserve / exchangeRate;
+            combinedExpectedSatsOutput += expectedSatsOutput;
+            expectedSatsOutputArray[i] = expectedSatsOutput;
         }
-        combinedAmountsToReserve = unbufferFrom18Decimals(combinedAmountsToReserve, TOKEN_DECIMALS);
 
         // [1] calculate fees
-        console.log("combinedAmountsToReserve: ", combinedAmountsToReserve);
         uint256 protocolFee = (combinedAmountsToReserve * SCALE * protocolFeeBP) / (BP_SCALE * SCALE);
         console.log("protocolFee: ", protocolFee);
         // TODO multiply proof gas cost by block base fee converted to usdt from uniswap twap weth/usdt pool
@@ -343,8 +343,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             // [0] retrieve deposit vault
             vaultHash = sha256(
                 abi.encode(
-                    bufferTo18Decimals(amountsToReserve[i], TOKEN_DECIMALS),
-                    depositVaults[vaultIndexesToReserve[i]].exchangeRate,
+                    expectedSatsOutputArray[i],
                     depositVaults[vaultIndexesToReserve[i]].btcPayoutLockingScript,
                     vaultHash
                 )
