@@ -84,7 +84,7 @@ contract DeployRiftExchange is Script {
         uint256 bitcoin_chain_height = fetchBlockHeight();
         uint256 initialCheckpointHeight = bitcoin_chain_height - 6;
         bytes32 initialBlockHash = fetchBlockHash(initialCheckpointHeight);
-        bytes32 initialRetargetBlockHash = fetchBlockHash(calculateRetargetHeight(initialCheckpointHeight - 2016));
+        bytes32 initialRetargetBlockHash = fetchBlockHash(calculateRetargetHeight(initialCheckpointHeight));
 
         // Define the constructor arguments
         address verifierContractAddress = address(0x3B6041173B80E77f038f3F2C0f9744f04837185e);
@@ -96,6 +96,8 @@ contract DeployRiftExchange is Script {
         address owner = msg.sender;
 
         console.log("Deploying RiftExchange...");
+        console.log("initialRetargetBlockHash:");
+        console.logBytes32(initialRetargetBlockHash);
         console.log("initialCheckpointHeight:", initialCheckpointHeight);
         console.log("initialBlockHash:");
         console.logBytes32(initialBlockHash);
