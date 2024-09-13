@@ -500,7 +500,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         swapReservation.state = ReservationState.Unlocked;
 
         // [5] payout prover (proving gas cost + proving reward)
-        uint proverPayoutAmount = proverReward + ((PROOF_GAS_COST * block.basefee)); // TODO: inspect if base block fee is what we want
+        uint proverPayoutAmount = proverReward;
         DEPOSIT_TOKEN.transfer(msg.sender, proverPayoutAmount);
 
         // [6] subtract prover fee from prepaid fee amount
