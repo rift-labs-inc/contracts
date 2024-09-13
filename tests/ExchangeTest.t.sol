@@ -65,6 +65,36 @@ contract RiftExchangeTest is Test {
         );
     }
 
+    function testLpReservationHash() public {
+        uint64[] memory expectedSatsOutputArray = new uint64[](1);
+        bytes22 btcPayoutLockingScript = hex"0014841b80d2cc75f5345c482af96294d04fdd66b2b7";
+        expectedSatsOutputArray[0] = 1230;
+
+        bytes32 vaultHash;
+
+        // [5] check if there is enough liquidity in each deposit vaults to reserve
+        for (uint i = 0; i < expectedSatsOutputArray.length; i++) {
+            console.log("hashable chunk");
+            console.logBytes(
+                abi.encode(
+                    expectedSatsOutputArray[i],
+                    btcPayoutLockingScript,
+                    vaultHash
+                ));
+            // [0] retrieve deposit vault
+            vaultHash = sha256(
+                abi.encode(
+                    expectedSatsOutputArray[i],
+                    btcPayoutLockingScript,
+                    vaultHash
+                )
+            );
+        }
+
+        console.log("Vault hash:");
+        console.logBytes32(vaultHash);
+    }
+
     //--------- DEPOSIT TESTS ---------//
     // function testDepositLiquidity() public {
     //     deal(address(usdt), testAddress, 1_000_000_000_000_000e6); // Mint USDT (6 decimals)

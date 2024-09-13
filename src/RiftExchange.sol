@@ -431,7 +431,6 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes32 natural_txid;
         bytes32 lp_reservation_hash;
         bytes32 order_nonce;
-        uint256 expected_payout;
         uint64 lp_count;
         bytes32 retarget_block_hash;
         uint64 safe_block_height;
@@ -471,7 +470,6 @@ contract RiftExchange is BlockHashStorage, Owned {
                 natural_txid: bitcoinTxId,
                 lp_reservation_hash: swapReservation.lpReservationHash,
                 order_nonce: swapReservation.nonce,
-                expected_payout: bufferedAmountsToReserve,
                 lp_count: uint64(swapReservation.vaultIndexes.length),
                 retarget_block_hash: getBlockHash(calculateRetargetHeight(proposedBlockHeight)),
                 safe_block_height: safeBlockHeight,
