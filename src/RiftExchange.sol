@@ -114,6 +114,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes32 proposedBlockHash;
         uint256[] vaultIndexes;
         uint192[] amountsToReserve;
+        uint64[] expectedSatsOutput;
     }
 
     mapping(address => LiquidityProvider) liquidityProviders; // lpAddress => LiquidityProvider
@@ -306,7 +307,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         // [0] calculate total amount of ETH the user is attempting to reserve
         uint256 combinedAmountsToReserve = 0;
         uint256 combinedExpectedSatsOutput = 0;
-        uint256[] memory expectedSatsOutputArray = new uint256[](vaultIndexesToReserve.length);
+        uint64[] memory expectedSatsOutputArray = new uint64[](vaultIndexesToReserve.length);
 
         for (uint256 i = 0; i < amountsToReserve.length; i++) {
             uint256 exchangeRate = depositVaults[vaultIndexesToReserve[i]].exchangeRate;
@@ -314,7 +315,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             uint256 bufferedAmountToReserve = bufferTo18Decimals(amountsToReserve[i], TOKEN_DECIMALS);
             uint256 expectedSatsOutput = bufferedAmountToReserve / exchangeRate;
             combinedExpectedSatsOutput += expectedSatsOutput;
-            expectedSatsOutputArray[i] = expectedSatsOutput;
+            expectedSatsOutputArray[i] = uint64(expectedSatsOutput);
         }
 
         // [1] calculate fees
@@ -378,6 +379,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             swapReservationToOverwrite.vaultIndexes = vaultIndexesToReserve;
             swapReservationToOverwrite.amountsToReserve = amountsToReserve;
             swapReservationToOverwrite.lpReservationHash = vaultHash;
+            swapReservationToOverwrite.expectedSatsOutput = expectedSatsOutputArray;
         }
         // otherwise push new reservation if no expired reservations slots are available
         else {
@@ -397,7 +399,8 @@ contract RiftExchange is BlockHashStorage, Owned {
                     proposedBlockHash: bytes32(0),
                     lpReservationHash: vaultHash,
                     vaultIndexes: vaultIndexesToReserve,
-                    amountsToReserve: amountsToReserve
+                    amountsToReserve: amountsToReserve,
+                    expectedSatsOutput: expectedSatsOutputArray
                 })
             );
         }
