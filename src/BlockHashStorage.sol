@@ -13,6 +13,8 @@ contract BlockHashStorage {
     mapping(uint256 => bytes32) blockchain; // block height => block hash
     uint256 public currentHeight;
     uint256 public currentConfirmationHeight;
+    // TODO: This needs to be 5 before mainnet launch
+    uint8 constant MINIMUM_CONFIRMATION_DELTA = 1;
 
     event BlocksAdded(uint256 startBlockHeight, uint256 count);
 
@@ -33,7 +35,7 @@ contract BlockHashStorage {
         uint _tipBlockHeight = currentHeight;
 
         // [0] ensure confirmation block matches block in blockchain (if < 5 away from proposed block)
-        if (confirmationBlockHeight - proposedBlockHeight < 5) {
+        if (confirmationBlockHeight - proposedBlockHeight < MINIMUM_CONFIRMATION_DELTA) {
             if (blockHashes[blockHashes.length - 1] != blockchain[confirmationBlockHeight]) {
                 revert InvalidConfirmationBlock();
             }
