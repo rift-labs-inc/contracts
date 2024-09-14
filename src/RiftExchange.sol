@@ -556,7 +556,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
 
         // [5] pay releaser (release cost + releaser reward)
-        uint releaserPayoutAmount = releaserReward + ((RELEASE_GAS_COST * block.basefee));
+        uint releaserPayoutAmount = releaserReward;
         DEPOSIT_TOKEN.transfer(msg.sender, releaserPayoutAmount);
 
         // [6] subtract releaser fee from prepaid fee amount
