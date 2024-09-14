@@ -6,11 +6,11 @@ import "forge-std/console.sol";
 import "../src/RiftExchange.sol";
 
 contract DeployRiftExchange is Script {
-    function stringToUint(string memory s) internal pure returns (uint) {
+    function stringToUint(string memory s) internal pure returns (uint256) {
         bytes memory b = bytes(s);
-        uint result = 0;
-        for (uint i = 0; i < b.length; i++) {
-            uint c = uint(uint8(b[i]));
+        uint256 result = 0;
+        for (uint256 i = 0; i < b.length; i++) {
+            uint256 c = uint256(uint8(b[i]));
             if (c >= 48 && c <= 57) {
                 result = result * 10 + (c - 48);
             }
@@ -18,23 +18,23 @@ contract DeployRiftExchange is Script {
         return result;
     }
 
-    function _substring(string memory _base, int _length, int _offset) internal pure returns (string memory) {
+    function _substring(string memory _base, int256 _length, int256 _offset) internal pure returns (string memory) {
         bytes memory _baseBytes = bytes(_base);
 
-        assert(uint(_offset + _length) <= _baseBytes.length);
+        assert(uint256(_offset + _length) <= _baseBytes.length);
 
-        string memory _tmp = new string(uint(_length));
+        string memory _tmp = new string(uint256(_length));
         bytes memory _tmpBytes = bytes(_tmp);
 
-        uint j = 0;
-        for (uint i = uint(_offset); i < uint(_offset + _length); i++) {
+        uint256 j = 0;
+        for (uint256 i = uint256(_offset); i < uint256(_offset + _length); i++) {
             _tmpBytes[j++] = _baseBytes[i];
         }
 
         return string(_tmpBytes);
     }
 
-    function fetchBlockHeight() public returns (uint256) {
+    function fetchChainHeight() public returns (uint256) {
         // Prepare the curl command with jq
         string[] memory curlInputs = new string[](3);
         curlInputs[0] = "bash";
@@ -48,7 +48,7 @@ contract DeployRiftExchange is Script {
             )
         );
         string memory _blockHeightStr = vm.toString(vm.ffi(curlInputs));
-        string memory blockHeightStr = _substring(_blockHeightStr, int(bytes(_blockHeightStr).length) - 2, 2);
+        string memory blockHeightStr = _substring(_blockHeightStr, int256(bytes(_blockHeightStr).length) - 2, 2);
         uint256 blockHeight = stringToUint(blockHeightStr);
         return blockHeight;
     }
@@ -81,8 +81,7 @@ contract DeployRiftExchange is Script {
 
         console.log("Starting deployment...");
 
-        uint256 bitcoin_chain_height = fetchBlockHeight();
-        uint256 initialCheckpointHeight = bitcoin_chain_height - 6;
+        uint256 initialCheckpointHeight = fetchChainHeight() - 6;
         bytes32 initialBlockHash = fetchBlockHash(initialCheckpointHeight);
         bytes32 initialRetargetBlockHash = fetchBlockHash(calculateRetargetHeight(initialCheckpointHeight));
 
@@ -93,7 +92,6 @@ contract DeployRiftExchange is Script {
         uint256 releaserReward = 1 * 10 ** 6; // 1 USDT
         bytes32 verificationKeyHash = hex"007d8ce052805633178ef6141f1caabdb9249c92b94831c79253d6c748ee4fe8";
         address payable protocolAddress = payable(address(0x9FEEf1C10B8cD9Bc6c6B6B44ad96e07F805decaf));
-        address owner = msg.sender;
 
         console.log("Deploying RiftExchange...");
         console.log("initialRetargetBlockHash:");
@@ -108,20 +106,20 @@ contract DeployRiftExchange is Script {
         console.log("protocolAddress:", protocolAddress);
 
         // Try deploying RiftExchange
-        try
-            new RiftExchange(
-                initialCheckpointHeight,
-                initialBlockHash,
-                initialRetargetBlockHash,
-                verifierContractAddress,
-                depositTokenAddress,
-                proverReward,
-                releaserReward,
-                protocolAddress,
-                owner,
-                verificationKeyHash
-            )
-        returns (RiftExchange riftExchange) {
+        try new RiftExchange(
+            initialCheckpointHeight,
+            initialBlockHash,
+            initialRetargetBlockHash,
+            verifierContractAddress,
+            depositTokenAddress,
+            proverReward,
+            releaserReward,
+            protocolAddress,
+            msg.sender,
+            verificationKeyHash,
+            // +5 is industry standard (block explorers show this as 6 "confirmations")
+            5
+        ) returns (RiftExchange riftExchange) {
             console.log("RiftExchange deployed at:", address(riftExchange));
         } catch Error(string memory reason) {
             console.log("Failed to deploy RiftExchange:");

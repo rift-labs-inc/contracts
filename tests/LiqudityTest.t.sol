@@ -1,71 +1,13 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.0;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
-import {RiftExchange} from "../src/RiftExchange.sol";
-import {WETH} from "solmate/tokens/WETH.sol";
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
+import { ExchangeTestBase } from "./ExchangeTestBase.t.sol";
+import { RiftExchange } from "../src/RiftExchange.sol";
 
-// Mock USDT contract
-contract MockUSDT is ERC20 {
-    constructor() ERC20("Tether USD", "USDT", 6) {} // USDT has 6 decimals
-
-    function mint(address to, uint256 amount) public {
-        _mint(to, amount);
-    }
-}
-
-contract RiftExchangeTest is Test {
-    RiftExchange riftExchange;
-    MockUSDT usdt;
-    address testAddress = address(0x69696969);
-    address lp1 = address(0x69);
-    address lp2 = address(0x69420);
-    address lp3 = address(0x6969);
-    address buyer1 = address(0x111111);
-    address buyer2 = address(0x222222);
-    address buyer3 = address(0x333333);
-
-    bytes4 constant DEPOSIT_TOO_LOW = bytes4(keccak256("DepositTooLow()"));
-    bytes4 constant INVALID_VAULT_UPDATE = bytes4(keccak256("InvalidVaultUpdate()"));
-    bytes4 constant NOT_VAULT_OWNER = bytes4(keccak256("NotVaultOwner()"));
-    bytes4 constant DEPOSIT_TOO_HIGH = bytes4(keccak256("DepositTooHigh()"));
-    bytes4 constant INVALID_BTC_PAYOUT_ADDRESS = bytes4(keccak256("InvalidBitcoinAddress()"));
-    bytes4 constant RESERVATION_FEE_TOO_LOW = bytes4(keccak256("ReservationFeeTooLow()"));
-    bytes4 constant INVALID_UPDATE_WITH_ACTIVE_RESERVATIONS =
-        bytes4(keccak256("InvalidUpdateWithActiveReservations()"));
-    bytes4 constant NOT_ENOUGH_LIQUIDITY = bytes4(keccak256("NotEnoughLiquidity()"));
-    bytes4 constant RESERVATION_AMOUNT_TOO_LOW = bytes4(keccak256("ReservationAmountTooLow()"));
-    bytes4 constant RESERVATION_EXPIRED = bytes4(keccak256("ReservationExpired()"));
-
-    function setUp() public {
-        bytes32 initialBlockHash = bytes32(0x00000000000000000002da2dfb440c17bb561ff83ec1e88cd9433e062e5388bc);
-        bytes32 initialRetargetBlockHash = hex"00ca6cebffbb631e1dcb7588151f5cd92b1fd99c85e065030307de4c677b6dba";
-        uint256 initialCheckpointHeight = 845690;
-        address verifierContractAddress = address(0x123);
-
-        usdt = new MockUSDT();
-
-        uint256 proverReward = 5 * 10 ** 6; // 5 USDT
-        uint256 releaserReward = 2 * 10 ** 6; // 2 USDT
-        address payable protocolAddress = payable(address(this));
-
-        riftExchange = new RiftExchange(
-            initialCheckpointHeight,
-            initialBlockHash,
-            initialRetargetBlockHash,
-            verifierContractAddress,
-            address(usdt),
-            proverReward,
-            releaserReward,
-            protocolAddress,
-            protocolAddress,
-            hex"00ca6cebffbb631e1dcb7588151f5cd92b1fd99c85e065030307de4c677b6dba"
-        );
-    }
-
-    function testLpReservationHash() public {
+contract LiquidityDepositTest is ExchangeTestBase {
+    function testLpReservationHash() public view {
         uint64[] memory expectedSatsOutputArray = new uint64[](1);
         bytes22 btcPayoutLockingScript = hex"0014841b80d2cc75f5345c482af96294d04fdd66b2b7";
         expectedSatsOutputArray[0] = 1230;
@@ -73,22 +15,11 @@ contract RiftExchangeTest is Test {
         bytes32 vaultHash;
 
         // [5] check if there is enough liquidity in each deposit vaults to reserve
-        for (uint i = 0; i < expectedSatsOutputArray.length; i++) {
+        for (uint256 i = 0; i < expectedSatsOutputArray.length; i++) {
             console.log("hashable chunk");
-            console.logBytes(
-                abi.encode(
-                    expectedSatsOutputArray[i],
-                    btcPayoutLockingScript,
-                    vaultHash
-                ));
+            console.logBytes(abi.encode(expectedSatsOutputArray[i], btcPayoutLockingScript, vaultHash));
             // [0] retrieve deposit vault
-            vaultHash = sha256(
-                abi.encode(
-                    expectedSatsOutputArray[i],
-                    btcPayoutLockingScript,
-                    vaultHash
-                )
-            );
+            vaultHash = sha256(abi.encode(expectedSatsOutputArray[i], btcPayoutLockingScript, vaultHash));
         }
 
         console.log("Vault hash:");
@@ -96,32 +27,32 @@ contract RiftExchangeTest is Test {
     }
 
     //--------- DEPOSIT TESTS ---------//
-    // function testDepositLiquidity() public {
-    //     deal(address(usdt), testAddress, 1_000_000_000_000_000e6); // Mint USDT (6 decimals)
-    //     vm.startPrank(testAddress);
+    function testDepositLiquidity() public {
+        deal(address(usdt), testAddress, 1_000_000_000_000_000e6); // Mint USDT (6 decimals)
+        vm.startPrank(testAddress);
 
-    //     console.log("Starting deposit liquidity...");
-    //     console.log("testaddress USDT balance: ", usdt.balanceOf(testAddress));
+        console.log("Starting deposit liquidity...");
+        console.log("testaddress USDT balance: ", usdt.balanceOf(testAddress));
 
-    //     bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
-    //     uint64 exchangeRate = 2557666;
-    //     uint256 depositAmount = 1_000_000_000_000_000e6; // 1b USDT
+        bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
+        uint64 exchangeRate = 2557666;
+        uint256 depositAmount = 1_000_000_000_000_000e6; // 1b USDT
 
-    //     usdt.approve(address(riftExchange), depositAmount);
+        usdt.approve(address(riftExchange), depositAmount);
 
-    //     uint256 gasBefore = gasleft();
-    //     riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
-    //     uint256 gasUsed = gasBefore - gasleft();
-    //     console.log("Gas used for deposit:", gasUsed);
+        uint256 gasBefore = gasleft();
+        riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
+        uint256 gasUsed = gasBefore - gasleft();
+        console.log("Gas used for deposit:", gasUsed);
 
-    //     uint256 vaultIndex = riftExchange.getDepositVaultsLength() - 1;
-    //     RiftExchange.DepositVault memory deposit = riftExchange.getDepositVault(vaultIndex);
+        uint256 vaultIndex = riftExchange.getDepositVaultsLength() - 1;
+        RiftExchange.DepositVault memory deposit = riftExchange.getDepositVault(vaultIndex);
 
-    //     assertEq(deposit.initialBalance, depositAmount, "Deposit amount mismatch");
-    //     assertEq(deposit.exchangeRate, exchangeRate, "BTC exchange rate mismatch");
+        assertEq(deposit.initialBalance, depositAmount, "Deposit amount mismatch");
+        assertEq(deposit.exchangeRate, exchangeRate, "BTC exchange rate mismatch");
 
-    //     vm.stopPrank();
-    // }
+        vm.stopPrank();
+    }
 
     // function testDepositOverwrite() public {
     //     // setup
@@ -368,7 +299,7 @@ contract RiftExchangeTest is Test {
 
         uint192 depositAmount = 500_000_000e6; // 500 million USDT per vault
 
-        for (uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             riftExchange.depositLiquidity(
                 depositAmount,
                 exchangeRates[i],
@@ -393,9 +324,8 @@ contract RiftExchangeTest is Test {
         uint256[] memory empty = new uint256[](0);
 
         // Approve additional USDT for fees
-        uint256 totalReserveAmount = uint256(amountsToReserve[0]) +
-            uint256(amountsToReserve[1]) +
-            uint256(amountsToReserve[2]);
+        uint256 totalReserveAmount =
+            uint256(amountsToReserve[0]) + uint256(amountsToReserve[1]) + uint256(amountsToReserve[2]);
         uint256 additionalApproval = 3_000_000e6; // 3 million USDT for fees
         usdt.approve(address(riftExchange), totalReserveAmount + additionalApproval);
 
@@ -409,11 +339,7 @@ contract RiftExchangeTest is Test {
         uint256 demoTotalSatsInput = 30000; // Increased for multiple vaults
 
         riftExchange.reserveLiquidity(
-            vaultIndexesToReserve,
-            amountsToReserve,
-            ethPayoutAddress,
-            demoTotalSatsInput,
-            empty
+            vaultIndexesToReserve, amountsToReserve, ethPayoutAddress, demoTotalSatsInput, empty
         );
 
         // USDT balance after
@@ -430,7 +356,7 @@ contract RiftExchangeTest is Test {
         assertEq(reservation.totalSwapOutputAmount, totalReserveAmount, "Total swap amount should match");
 
         // Validate balances and state changes
-        for (uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             uint256 remainingBalance = riftExchange.getDepositVaultUnreservedBalance(i);
             console.log("Remaining balance in vault", i, ":", remainingBalance);
             assertEq(
