@@ -84,6 +84,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     struct DepositVault {
+        address owner;
         uint256 initialBalance; // in token's smallest unit (wei, μUSDT, etc)
         uint256 unreservedBalance; // in token's smallest unit (wei, μUSDT, etc) - true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
         uint256 withdrawnAmount; // in token's smallest unit (wei, μUSDT, etc)
@@ -211,6 +212,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             }
 
             // [2] overwrite empty vault with new deposit
+            emptyVault.owner = msg.sender;
             emptyVault.initialBalance = depositAmount;
             emptyVault.unreservedBalance = depositAmount;
             emptyVault.withdrawnAmount = 0;
@@ -221,6 +223,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         else {
             depositVaults.push(
                 DepositVault({
+                    owner: msg.sender,
                     initialBalance: depositAmount,
                     unreservedBalance: depositAmount,
                     withdrawnAmount: 0,
@@ -677,6 +680,23 @@ contract RiftExchange is BlockHashStorage, Owned {
 
     function unpauseDepositNewLiquidity() external onlyOwner whenPaused {
         isDepositNewLiquidityPaused = false;
+    }
+
+    function refundAllLPs(uint256 startIndex, uint256 endIndex) external onlyOwner {
+        require(startIndex < depositVaults.length, "Invalid start index");
+        if (endIndex > depositVaults.length) {
+            endIndex = depositVaults.length;
+        }
+
+        for (uint256 i = startIndex; i < endIndex; i++) {
+            DepositVault storage vault = depositVaults[i];
+            uint256 refundAmount = vault.unreservedBalance;
+
+            if (refundAmount > 0) {
+                vault.unreservedBalance = 0; // Prevent re-entrancy and double refunds
+                DEPOSIT_TOKEN.transfer(vault.owner, refundAmount);
+            }
+        }
     }
 
     // --------- TESTING FUNCTIONS (TODO: DELETE) --------- //
