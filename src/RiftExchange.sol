@@ -58,6 +58,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     uint8 public constant SAMPLING_SIZE = 10;
     uint256 constant SCALE = 1e18;
     uint256 constant BP_SCALE = 10000;
+    bool public isDepositNewLiquidityPaused = false;
 
     IERC20 public immutable DEPOSIT_TOKEN;
     uint8 public immutable TOKEN_DECIMALS;
@@ -94,8 +95,8 @@ contract RiftExchange is BlockHashStorage, Owned {
         None,
         Created,
         Unlocked,
-        ExpiredAndAddedBackToVault,
-        Completed
+        Completed,
+        ExpiredAndAddedBackToVault
     }
 
     struct SwapReservation {
@@ -124,6 +125,18 @@ contract RiftExchange is BlockHashStorage, Owned {
     ISP1Verifier public immutable verifierContract;
     bytes32 public immutable circuitVerificationKey;
     address payable protocolAddress = payable(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+
+    // --------- MODIFIERS --------- //
+
+    modifier whenNotPaused() {
+        require(!isDepositNewLiquidityPaused, "new deposits are paused");
+        _;
+    }
+
+    modifier whenPaused() {
+        require(isDepositNewLiquidityPaused, "new deposits are not paused");
+        _;
+    }
 
     //--------- CONSTRUCTOR ---------//
 
@@ -164,7 +177,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes22 btcPayoutLockingScript,
         int256 vaultIndexToOverwrite,
         int256 vaultIndexWithSameExchangeRate
-    ) public {
+    ) public whenNotPaused {
         console.log("depositLiquidity");
         console.log("DepositAmount: ", depositAmount);
         // [0] validate btc exchange rate
@@ -654,6 +667,16 @@ contract RiftExchange is BlockHashStorage, Owned {
             return amount * (10 ** (18 - tokenDecimals));
         }
         return amount;
+    }
+
+    // --------- ONLY OWNER --------- //
+
+    function pauseDepositNewLiquidity() external onlyOwner whenNotPaused {
+        isDepositNewLiquidityPaused = true;
+    }
+
+    function unpauseDepositNewLiquidity() external onlyOwner whenPaused {
+        isDepositNewLiquidityPaused = false;
     }
 
     // --------- TESTING FUNCTIONS (TODO: DELETE) --------- //
