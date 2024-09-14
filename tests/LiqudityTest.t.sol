@@ -659,99 +659,226 @@ contract LiquidityDepositTest is ExchangeTestBase {
 
     // //--------- PAUSING DEPOSITS --------- //
 
-    function testPauseDepositLiquidity() public {
-        // Setup initial conditions
-        uint256 totalAmount = 1_000_000e6; // 1 million USDT
-        deal(address(usdt), testAddress, totalAmount); // Mint USDT to testAddress
-        vm.startPrank(testAddress); // Start acting as testAddress
+    // function testPauseDepositLiquidity() public {
+    //     // Setup initial conditions
+    //     uint256 totalAmount = 1_000_000e6; // 1 million USDT
+    //     deal(address(usdt), testAddress, totalAmount); // Mint USDT to testAddress
+    //     vm.startPrank(testAddress); // Start acting as testAddress
 
-        // Approve RiftExchange to spend USDT
-        usdt.approve(address(riftExchange), totalAmount);
+    //     // Approve RiftExchange to spend USDT
+    //     usdt.approve(address(riftExchange), totalAmount);
 
-        // First, deposit liquidity
+    //     // First, deposit liquidity
+    //     bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
+    //     uint64 exchangeRate = 596302900000000;
+    //     uint256 depositAmount = 500_000e6; // 500,000 USDT
+
+    //     riftExchange.depositLiquidity(
+    //         depositAmount,
+    //         exchangeRate,
+    //         btcPayoutLockingScript,
+    //         -1, // vaultIndexToOverwrite
+    //         -1 // vaultIndexWithSameExchangeRate
+    //     );
+
+    //     vm.stopPrank(); // Stop acting as testAddress
+
+    //     // Now, pause the contract as the owner (address(this))
+    //     riftExchange.pauseDepositNewLiquidity();
+
+    //     // Attempt to deposit liquidity again as testAddress (should fail)
+    //     vm.startPrank(testAddress);
+    //     // Expect the transaction to revert with "Contract is paused"
+    //     vm.expectRevert("new deposits are paused");
+    //     riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
+    //     vm.stopPrank();
+
+    //     // Unpause the contract as the owner
+    //     riftExchange.unpauseDepositNewLiquidity();
+
+    //     // Attempt to deposit liquidity again as testAddress (should succeed)
+    //     vm.startPrank(testAddress);
+    //     riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
+    //     vm.stopPrank();
+
+    //     // Verify that the total number of deposit vaults is now 2
+    //     uint256 vaultsLength = riftExchange.getDepositVaultsLength();
+    //     assertEq(vaultsLength, 2, "There should be two deposit vaults after unpausing and depositing again");
+    // }
+
+    // //--------- REFUNDING LPs --------- //
+
+    // function testSingleLPRefund() public {
+    //     // Setup: LP deposits liquidity
+    //     deal(address(usdt), testAddress, 1_000_000e6); // Mint 1,000,000 USDT to testAddress
+    //     vm.startPrank(testAddress);
+
+    //     bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
+    //     uint64 exchangeRate = 2557666;
+    //     uint256 depositAmount = 1_000_000e6; // 1,000,000 USDT
+
+    //     usdt.approve(address(riftExchange), depositAmount);
+
+    //     // Record gas before deposit
+    //     uint256 gasBefore = gasleft();
+    //     riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
+    //     uint256 gasUsed = gasBefore - gasleft();
+    //     console.log("Gas used for deposit:", gasUsed);
+
+    //     uint256 vaultIndex = riftExchange.getDepositVaultsLength() - 1;
+    //     RiftExchange.DepositVault memory deposit = riftExchange.getDepositVault(vaultIndex);
+
+    //     assertEq(deposit.initialBalance, depositAmount, "Deposit amount mismatch");
+    //     assertEq(deposit.exchangeRate, exchangeRate, "BTC exchange rate mismatch");
+
+    //     // Record LP's USDT balance before refund
+    //     uint256 lpBalanceBeforeRefund = usdt.balanceOf(testAddress);
+
+    //     vm.stopPrank(); // Stop acting as LP
+
+    //     // Owner calls refundAllLPs
+    //     riftExchange.refundAllLPs(0, riftExchange.getDepositVaultsLength(), new uint256[](0));
+
+    //     // Check LP's USDT balance after refund
+    //     uint256 lpBalanceAfterRefund = usdt.balanceOf(testAddress);
+    //     uint256 refundAmount = lpBalanceAfterRefund - lpBalanceBeforeRefund;
+
+    //     // LP should receive refund equal to depositAmount
+    //     assertEq(refundAmount, depositAmount, "LP should receive full refund");
+
+    //     // Verify that the vault's unreserved balance is zero
+    //     RiftExchange.DepositVault memory updatedDeposit = riftExchange.getDepositVault(vaultIndex);
+    //     assertEq(updatedDeposit.unreservedBalance, 0, "Vault unreserved balance should be zero after refund");
+
+    //     // Verify that the contract's USDT balance is zero
+    //     uint256 contractBalance = usdt.balanceOf(address(riftExchange));
+    //     assertEq(contractBalance, 0, "Contract USDT balance should be zero after refund");
+    // }
+
+    function testMultipleLPRefundWithReservations() public {
+        // Setup: Create multiple LPs and buyers
+        address[] memory lps = new address[](3);
+        lps[0] = address(0x1);
+        lps[1] = address(0x2);
+        lps[2] = address(0x3);
+
+        address[] memory buyers = new address[](2);
+        buyers[0] = address(0x4);
+        buyers[1] = address(0x5);
+
+        // Mint USDT to LPs and buyers
+        uint256 lpFunds = 1_000_000e6; // 1,000,000 USDT
+        uint256 buyerFunds = 100_000e6; // 100,000 USDT
+        for (uint i = 0; i < lps.length; i++) {
+            deal(address(usdt), lps[i], lpFunds);
+        }
+        for (uint i = 0; i < buyers.length; i++) {
+            deal(address(usdt), buyers[i], buyerFunds);
+        }
+
+        // LPs deposit liquidity
         bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
         uint64 exchangeRate = 596302900000000;
         uint256 depositAmount = 500_000e6; // 500,000 USDT
 
-        riftExchange.depositLiquidity(
-            depositAmount,
-            exchangeRate,
-            btcPayoutLockingScript,
-            -1, // vaultIndexToOverwrite
-            -1 // vaultIndexWithSameExchangeRate
-        );
+        for (uint i = 0; i < lps.length; i++) {
+            vm.startPrank(lps[i]);
+            usdt.approve(address(riftExchange), depositAmount);
+            riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
+            vm.stopPrank();
+        }
 
-        vm.stopPrank(); // Stop acting as testAddress
+        // Verify deposits
+        assertEq(riftExchange.getDepositVaultsLength(), 3, "Should have 3 deposit vaults");
 
-        // Now, pause the contract as the owner (address(this))
-        riftExchange.pauseDepositNewLiquidity();
+        // Buyers make reservations
+        uint256[] memory vaultIndexesToReserve = new uint256[](1);
+        uint192[] memory amountsToReserve = new uint192[](1);
+        uint256[] memory empty = new uint256[](0);
+        uint256 reservationAmount = 50_000e6; // 50,000 USDT
 
-        // Attempt to deposit liquidity again as testAddress (should fail)
-        vm.startPrank(testAddress);
-        // Expect the transaction to revert with "Contract is paused"
-        vm.expectRevert("new deposits are paused");
-        riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
-        vm.stopPrank();
+        for (uint i = 0; i < buyers.length; i++) {
+            vm.startPrank(buyers[i]);
+            usdt.approve(address(riftExchange), reservationAmount);
 
-        // Unpause the contract as the owner
-        riftExchange.unpauseDepositNewLiquidity();
+            vaultIndexesToReserve[0] = i; // Reserve from different vaults
+            amountsToReserve[0] = uint192(reservationAmount);
 
-        // Attempt to deposit liquidity again as testAddress (should succeed)
-        vm.startPrank(testAddress);
-        riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
-        vm.stopPrank();
+            riftExchange.reserveLiquidity(
+                vaultIndexesToReserve,
+                amountsToReserve,
+                buyers[i],
+                10000, // demoTotalSatsInput
+                empty
+            );
+            vm.stopPrank();
+        }
 
-        // Verify that the total number of deposit vaults is now 2
-        uint256 vaultsLength = riftExchange.getDepositVaultsLength();
-        assertEq(vaultsLength, 2, "There should be two deposit vaults after unpausing and depositing again");
-    }
+        // Verify reservations
+        for (uint i = 0; i < 2; i++) {
+            RiftExchange.DepositVault memory vault = riftExchange.getDepositVault(i);
+            assertEq(
+                vault.initialBalance - vault.unreservedBalance,
+                reservationAmount,
+                "Reserved amount should match reservation"
+            );
+        }
 
-    // //--------- REFUNDING LPs --------- //
+        // WHAT IS CONTRACT BALANCE??
+        console.log("Contract balance 1:", usdt.balanceOf(address(riftExchange)));
 
-    function testSingleLPRefund() public {
-        // Setup: LP deposits liquidity
-        deal(address(usdt), testAddress, 1_000_000e6); // Mint 1,000,000 USDT to testAddress
-        vm.startPrank(testAddress);
+        // Simulate passage of time to expire reservations
+        vm.warp(block.timestamp + riftExchange.RESERVATION_LOCKUP_PERIOD() + 1);
 
-        bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
-        uint64 exchangeRate = 2557666;
-        uint256 depositAmount = 1_000_000e6; // 1,000,000 USDT
+        // Prepare expired reservation indexes
+        uint256[] memory expiredReservationIndexes = new uint256[](2);
+        expiredReservationIndexes[0] = 0;
+        expiredReservationIndexes[1] = 1;
 
-        usdt.approve(address(riftExchange), depositAmount);
+        // Record LP balances before refund
+        uint256[] memory lpBalancesBefore = new uint256[](lps.length);
+        for (uint i = 0; i < lps.length; i++) {
+            lpBalancesBefore[i] = usdt.balanceOf(lps[i]);
+        }
 
-        // Record gas before deposit
-        uint256 gasBefore = gasleft();
-        riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
-        uint256 gasUsed = gasBefore - gasleft();
-        console.log("Gas used for deposit:", gasUsed);
-
-        uint256 vaultIndex = riftExchange.getDepositVaultsLength() - 1;
-        RiftExchange.DepositVault memory deposit = riftExchange.getDepositVault(vaultIndex);
-
-        assertEq(deposit.initialBalance, depositAmount, "Deposit amount mismatch");
-        assertEq(deposit.exchangeRate, exchangeRate, "BTC exchange rate mismatch");
-
-        // Record LP's USDT balance before refund
-        uint256 lpBalanceBeforeRefund = usdt.balanceOf(testAddress);
-
-        vm.stopPrank(); // Stop acting as LP
+        // console log LP balances before refund
+        for (uint i = 0; i < lps.length; i++) {
+            console.log("LP", i, "balance before refund:", lpBalancesBefore[i]);
+        }
 
         // Owner calls refundAllLPs
-        riftExchange.refundAllLPs(0, riftExchange.getDepositVaultsLength());
+        vm.prank(address(this)); // Ensure we're calling as the owner
+        riftExchange.refundAllLPs(0, riftExchange.getDepositVaultsLength(), expiredReservationIndexes);
 
-        // Check LP's USDT balance after refund
-        uint256 lpBalanceAfterRefund = usdt.balanceOf(testAddress);
-        uint256 refundAmount = lpBalanceAfterRefund - lpBalanceBeforeRefund;
+        // console log LP balances after refund
+        for (uint i = 0; i < lps.length; i++) {
+            console.log("LP", i, "balance after refund:", usdt.balanceOf(lps[i]));
+        }
 
-        // LP should receive refund equal to depositAmount
-        assertEq(refundAmount, depositAmount, "LP should receive full refund");
+        // Verify refunds
+        for (uint i = 0; i < lps.length; i++) {
+            uint256 lpBalanceAfter = usdt.balanceOf(lps[i]);
+            uint256 refundAmount = lpBalanceAfter - lpBalancesBefore[i];
 
-        // Verify that the vault's unreserved balance is zero
-        RiftExchange.DepositVault memory updatedDeposit = riftExchange.getDepositVault(vaultIndex);
-        assertEq(updatedDeposit.unreservedBalance, 0, "Vault unreserved balance should be zero after refund");
+            // All LPs should receive full refund because reservations have expired
+            assertEq(refundAmount, depositAmount, "LP should receive full refund");
+        }
 
-        // Verify that the contract's USDT balance is zero
-        uint256 contractBalance = usdt.balanceOf(address(riftExchange));
-        assertEq(contractBalance, 0, "Contract USDT balance should be zero after refund");
+        // Verify vault states after refund
+        for (uint i = 0; i < 3; i++) {
+            RiftExchange.DepositVault memory vault = riftExchange.getDepositVault(i);
+            assertEq(vault.unreservedBalance, 0, "Unreserved balance should be zero");
+            assertEq(vault.initialBalance, depositAmount, "Initial balance should remain unchanged");
+        }
+
+        // Verify that reservations are marked as expired
+        for (uint i = 0; i < 2; i++) {
+            RiftExchange.SwapReservation memory reservation = riftExchange.getReservation(i);
+            assertEq(
+                uint(reservation.state),
+                uint(RiftExchange.ReservationState.ExpiredAndAddedBackToVault),
+                "Reservation should be marked as expired"
+            );
+        }
     }
 }

@@ -675,18 +675,26 @@ contract RiftExchange is BlockHashStorage, Owned {
         isDepositNewLiquidityPaused = false;
     }
 
-    function refundAllLPs(uint256 startIndex, uint256 endIndex) external onlyOwner {
-        require(startIndex < depositVaults.length, "Invalid start index");
-        if (endIndex > depositVaults.length) {
-            endIndex = depositVaults.length;
+    function refundAllLPs(
+        uint256 depositVaultStartIndex,
+        uint256 depositVaultEndIndex,
+        uint256[] memory expiredReservationIndexes
+    ) external onlyOwner {
+        require(depositVaultStartIndex < depositVaults.length, "Invalid start index");
+
+        // clean up dead swap reservations to ensure unreserved balances are accurate (adding back expired reservations)
+        cleanUpDeadSwapReservations(expiredReservationIndexes);
+
+        if (depositVaultEndIndex > depositVaults.length) {
+            depositVaultEndIndex = depositVaults.length;
         }
 
-        for (uint256 i = startIndex; i < endIndex; i++) {
+        for (uint256 i = depositVaultStartIndex; i < depositVaultEndIndex; i++) {
             DepositVault storage vault = depositVaults[i];
             uint256 refundAmount = vault.unreservedBalance;
 
             if (refundAmount > 0) {
-                vault.unreservedBalance = 0; // Prevent re-entrancy and double refunds
+                vault.unreservedBalance = 0;
                 DEPOSIT_TOKEN.transfer(vault.owner, refundAmount);
             }
         }
