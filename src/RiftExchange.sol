@@ -58,6 +58,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     uint8 public constant SAMPLING_SIZE = 10;
     uint256 constant SCALE = 1e18;
     uint256 constant BP_SCALE = 10000;
+    bool public isDepositNewLiquidityPaused = false;
 
     IERC20 public immutable DEPOSIT_TOKEN;
     uint8 public immutable TOKEN_DECIMALS;
@@ -83,6 +84,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     struct DepositVault {
+        address owner;
         uint256 initialBalance; // in token's smallest unit (wei, μUSDT, etc)
         uint256 unreservedBalance; // in token's smallest unit (wei, μUSDT, etc) - true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
         uint256 withdrawnAmount; // in token's smallest unit (wei, μUSDT, etc)
@@ -94,8 +96,8 @@ contract RiftExchange is BlockHashStorage, Owned {
         None,
         Created,
         Unlocked,
-        ExpiredAndAddedBackToVault,
-        Completed
+        Completed,
+        ExpiredAndAddedBackToVault
     }
 
     struct SwapReservation {
@@ -124,6 +126,18 @@ contract RiftExchange is BlockHashStorage, Owned {
     ISP1Verifier public immutable verifierContract;
     bytes32 public immutable circuitVerificationKey;
     address payable protocolAddress = payable(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+
+    // --------- MODIFIERS --------- //
+
+    modifier whenNotPaused() {
+        require(!isDepositNewLiquidityPaused, "new deposits are paused");
+        _;
+    }
+
+    modifier whenPaused() {
+        require(isDepositNewLiquidityPaused, "new deposits are not paused");
+        _;
+    }
 
     //--------- CONSTRUCTOR ---------//
 
@@ -164,7 +178,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes22 btcPayoutLockingScript,
         int256 vaultIndexToOverwrite,
         int256 vaultIndexWithSameExchangeRate
-    ) public {
+    ) public whenNotPaused {
         // [0] validate btc exchange rate
         if (exchangeRate == 0) {
             revert exchangeRateZero();
@@ -196,6 +210,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             }
 
             // [2] overwrite empty vault with new deposit
+            emptyVault.owner = msg.sender;
             emptyVault.initialBalance = depositAmount;
             emptyVault.unreservedBalance = depositAmount;
             emptyVault.withdrawnAmount = 0;
@@ -206,6 +221,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         else {
             depositVaults.push(
                 DepositVault({
+                    owner: msg.sender,
                     initialBalance: depositAmount,
                     unreservedBalance: depositAmount,
                     withdrawnAmount: 0,
@@ -537,7 +553,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
 
         // [5] pay releaser (release cost + releaser reward)
-        uint256 releaserPayoutAmount = releaserReward + ((RELEASE_GAS_COST * block.basefee));
+        uint releaserPayoutAmount = releaserReward;
         DEPOSIT_TOKEN.transfer(msg.sender, releaserPayoutAmount);
 
         // [6] subtract releaser fee from prepaid fee amount
@@ -647,6 +663,33 @@ contract RiftExchange is BlockHashStorage, Owned {
             return amount * (10 ** (18 - tokenDecimals));
         }
         return amount;
+    }
+
+    // --------- ONLY OWNER --------- //
+
+    function pauseDepositNewLiquidity() external onlyOwner whenNotPaused {
+        isDepositNewLiquidityPaused = true;
+    }
+
+    function unpauseDepositNewLiquidity() external onlyOwner whenPaused {
+        isDepositNewLiquidityPaused = false;
+    }
+
+    function refundAllLPs(uint256 startIndex, uint256 endIndex) external onlyOwner {
+        require(startIndex < depositVaults.length, "Invalid start index");
+        if (endIndex > depositVaults.length) {
+            endIndex = depositVaults.length;
+        }
+
+        for (uint256 i = startIndex; i < endIndex; i++) {
+            DepositVault storage vault = depositVaults[i];
+            uint256 refundAmount = vault.unreservedBalance;
+
+            if (refundAmount > 0) {
+                vault.unreservedBalance = 0; // Prevent re-entrancy and double refunds
+                DEPOSIT_TOKEN.transfer(vault.owner, refundAmount);
+            }
+        }
     }
 
     // --------- TESTING FUNCTIONS (TODO: DELETE) --------- //
