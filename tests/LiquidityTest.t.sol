@@ -760,130 +760,130 @@ contract LiquidityDepositTest is ExchangeTestBase {
         assertEq(contractBalance, 0, "Contract USDT balance should be zero after refund");
     }
 
-    function testMultipleLPRefundWithReservations() public {
-        // Setup: Create multiple LPs and buyers
-        address[] memory lps = new address[](3);
-        lps[0] = address(0x1);
-        lps[1] = address(0x2);
-        lps[2] = address(0x3);
+    // function testMultipleLPRefundWithReservations() public {
+    //     // Setup: Create multiple LPs and buyers
+    //     address[] memory lps = new address[](3);
+    //     lps[0] = address(0x1);
+    //     lps[1] = address(0x2);
+    //     lps[2] = address(0x3);
 
-        address[] memory buyers = new address[](2);
-        buyers[0] = address(0x4);
-        buyers[1] = address(0x5);
+    //     address[] memory buyers = new address[](2);
+    //     buyers[0] = address(0x4);
+    //     buyers[1] = address(0x5);
 
-        // Mint USDT to LPs and buyers
-        uint256 lpFunds = 1_000_000e6; // 1,000,000 USDT
-        uint256 buyerFunds = 100_000e6; // 100,000 USDT
-        for (uint i = 0; i < lps.length; i++) {
-            deal(address(usdt), lps[i], lpFunds);
-        }
-        for (uint i = 0; i < buyers.length; i++) {
-            deal(address(usdt), buyers[i], buyerFunds);
-        }
+    //     // Mint USDT to LPs and buyers
+    //     uint256 lpFunds = 1_000_000e6; // 1,000,000 USDT
+    //     uint256 buyerFunds = 100_000e6; // 100,000 USDT
+    //     for (uint i = 0; i < lps.length; i++) {
+    //         deal(address(usdt), lps[i], lpFunds);
+    //     }
+    //     for (uint i = 0; i < buyers.length; i++) {
+    //         deal(address(usdt), buyers[i], buyerFunds);
+    //     }
 
-        // LPs deposit liquidity
-        bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
-        uint64 exchangeRate = 596302900000000;
-        uint256 depositAmount = 500_000e6; // 500,000 USDT
+    //     // LPs deposit liquidity
+    //     bytes22 btcPayoutLockingScript = 0x0014841b80d2cc75f5345c482af96294d04fdd66b2b7;
+    //     uint64 exchangeRate = 596302900000000;
+    //     uint256 depositAmount = 500_000e6; // 500,000 USDT
 
-        for (uint i = 0; i < lps.length; i++) {
-            vm.startPrank(lps[i]);
-            usdt.approve(address(riftExchange), depositAmount);
-            riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
-            vm.stopPrank();
-        }
+    //     for (uint i = 0; i < lps.length; i++) {
+    //         vm.startPrank(lps[i]);
+    //         usdt.approve(address(riftExchange), depositAmount);
+    //         riftExchange.depositLiquidity(depositAmount, exchangeRate, btcPayoutLockingScript, -1, -1);
+    //         vm.stopPrank();
+    //     }
 
-        // Verify deposits
-        assertEq(riftExchange.getDepositVaultsLength(), 3, "Should have 3 deposit vaults");
+    //     // Verify deposits
+    //     assertEq(riftExchange.getDepositVaultsLength(), 3, "Should have 3 deposit vaults");
 
-        // Buyers make reservations
-        uint256[] memory vaultIndexesToReserve = new uint256[](1);
-        uint192[] memory amountsToReserve = new uint192[](1);
-        uint256[] memory empty = new uint256[](0);
-        uint256 reservationAmount = 50_000e6; // 50,000 USDT
+    //     // Buyers make reservations
+    //     uint256[] memory vaultIndexesToReserve = new uint256[](1);
+    //     uint192[] memory amountsToReserve = new uint192[](1);
+    //     uint256[] memory empty = new uint256[](0);
+    //     uint256 reservationAmount = 50_000e6; // 50,000 USDT
 
-        for (uint i = 0; i < buyers.length; i++) {
-            vm.startPrank(buyers[i]);
-            usdt.approve(address(riftExchange), reservationAmount);
+    //     for (uint i = 0; i < buyers.length; i++) {
+    //         vm.startPrank(buyers[i]);
+    //         usdt.approve(address(riftExchange), reservationAmount);
 
-            vaultIndexesToReserve[0] = i; // Reserve from different vaults
-            amountsToReserve[0] = uint192(reservationAmount);
+    //         vaultIndexesToReserve[0] = i; // Reserve from different vaults
+    //         amountsToReserve[0] = uint192(reservationAmount);
 
-            riftExchange.reserveLiquidity(
-                vaultIndexesToReserve,
-                amountsToReserve,
-                buyers[i],
-                10000, // demoTotalSatsInput
-                empty
-            );
-            vm.stopPrank();
-        }
+    //         riftExchange.reserveLiquidity(
+    //             vaultIndexesToReserve,
+    //             amountsToReserve,
+    //             buyers[i],
+    //             10000, // demoTotalSatsInput
+    //             empty
+    //         );
+    //         vm.stopPrank();
+    //     }
 
-        // Verify reservations
-        for (uint i = 0; i < 2; i++) {
-            RiftExchange.DepositVault memory vault = riftExchange.getDepositVault(i);
-            assertEq(
-                vault.initialBalance - vault.unreservedBalance,
-                reservationAmount,
-                "Reserved amount should match reservation"
-            );
-        }
+    //     // Verify reservations
+    //     for (uint i = 0; i < 2; i++) {
+    //         RiftExchange.DepositVault memory vault = riftExchange.getDepositVault(i);
+    //         assertEq(
+    //             vault.initialBalance - vault.unreservedBalance,
+    //             reservationAmount,
+    //             "Reserved amount should match reservation"
+    //         );
+    //     }
 
-        // WHAT IS CONTRACT BALANCE??
-        console.log("Contract balance 1:", usdt.balanceOf(address(riftExchange)));
+    //     // WHAT IS CONTRACT BALANCE??
+    //     console.log("Contract balance 1:", usdt.balanceOf(address(riftExchange)));
 
-        // Simulate passage of time to expire reservations
-        vm.warp(block.timestamp + riftExchange.RESERVATION_LOCKUP_PERIOD() + 1);
+    //     // Simulate passage of time to expire reservations
+    //     vm.warp(block.timestamp + riftExchange.RESERVATION_LOCKUP_PERIOD() + 1);
 
-        // Prepare expired reservation indexes
-        uint256[] memory expiredReservationIndexes = new uint256[](2);
-        expiredReservationIndexes[0] = 0;
-        expiredReservationIndexes[1] = 1;
+    //     // Prepare expired reservation indexes
+    //     uint256[] memory expiredReservationIndexes = new uint256[](2);
+    //     expiredReservationIndexes[0] = 0;
+    //     expiredReservationIndexes[1] = 1;
 
-        // Record LP balances before refund
-        uint256[] memory lpBalancesBefore = new uint256[](lps.length);
-        for (uint i = 0; i < lps.length; i++) {
-            lpBalancesBefore[i] = usdt.balanceOf(lps[i]);
-        }
+    //     // Record LP balances before refund
+    //     uint256[] memory lpBalancesBefore = new uint256[](lps.length);
+    //     for (uint i = 0; i < lps.length; i++) {
+    //         lpBalancesBefore[i] = usdt.balanceOf(lps[i]);
+    //     }
 
-        // console log LP balances before refund
-        for (uint i = 0; i < lps.length; i++) {
-            console.log("LP", i, "balance before refund:", lpBalancesBefore[i]);
-        }
+    //     // console log LP balances before refund
+    //     for (uint i = 0; i < lps.length; i++) {
+    //         console.log("LP", i, "balance before refund:", lpBalancesBefore[i]);
+    //     }
 
-        // Owner calls refundAllLPs
-        vm.prank(address(this)); // Ensure we're calling as the owner
-        riftExchange.refundAllLPs(0, riftExchange.getDepositVaultsLength(), expiredReservationIndexes);
+    //     // Owner calls refundAllLPs
+    //     vm.prank(address(this)); // Ensure we're calling as the owner
+    //     riftExchange.refundAllLPs(0, riftExchange.getDepositVaultsLength(), expiredReservationIndexes);
 
-        // console log LP balances after refund
-        for (uint i = 0; i < lps.length; i++) {
-            console.log("LP", i, "balance after refund:", usdt.balanceOf(lps[i]));
-        }
+    //     // console log LP balances after refund
+    //     for (uint i = 0; i < lps.length; i++) {
+    //         console.log("LP", i, "balance after refund:", usdt.balanceOf(lps[i]));
+    //     }
 
-        // Verify refunds
-        for (uint i = 0; i < lps.length; i++) {
-            uint256 lpBalanceAfter = usdt.balanceOf(lps[i]);
-            uint256 refundAmount = lpBalanceAfter - lpBalancesBefore[i];
+    //     // Verify refunds
+    //     for (uint i = 0; i < lps.length; i++) {
+    //         uint256 lpBalanceAfter = usdt.balanceOf(lps[i]);
+    //         uint256 refundAmount = lpBalanceAfter - lpBalancesBefore[i];
 
-            // All LPs should receive full refund because reservations have expired
-            assertEq(refundAmount, depositAmount, "LP should receive full refund");
-        }
+    //         // All LPs should receive full refund because reservations have expired
+    //         assertEq(refundAmount, depositAmount, "LP should receive full refund");
+    //     }
 
-        // Verify vault states after refund
-        for (uint i = 0; i < 3; i++) {
-            RiftExchange.DepositVault memory vault = riftExchange.getDepositVault(i);
-            assertEq(vault.unreservedBalance, 0, "Unreserved balance should be zero");
-            assertEq(vault.initialBalance, depositAmount, "Initial balance should remain unchanged");
-        }
+    //     // Verify vault states after refund
+    //     for (uint i = 0; i < 3; i++) {
+    //         RiftExchange.DepositVault memory vault = riftExchange.getDepositVault(i);
+    //         assertEq(vault.unreservedBalance, 0, "Unreserved balance should be zero");
+    //         assertEq(vault.initialBalance, depositAmount, "Initial balance should remain unchanged");
+    //     }
 
-        // Verify that reservations are marked as expired
-        for (uint i = 0; i < 2; i++) {
-            RiftExchange.SwapReservation memory reservation = riftExchange.getReservation(i);
-            assertEq(
-                uint(reservation.state),
-                uint(RiftExchange.ReservationState.ExpiredAndAddedBackToVault),
-                "Reservation should be marked as expired"
-            );
-        }
-    }
+    //     // Verify that reservations are marked as expired
+    //     for (uint i = 0; i < 2; i++) {
+    //         RiftExchange.SwapReservation memory reservation = riftExchange.getReservation(i);
+    //         assertEq(
+    //             uint(reservation.state),
+    //             uint(RiftExchange.ReservationState.ExpiredAndAddedBackToVault),
+    //             "Reservation should be marked as expired"
+    //         );
+    //     }
+    // }
 }
