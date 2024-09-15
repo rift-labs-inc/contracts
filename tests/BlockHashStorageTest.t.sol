@@ -33,9 +33,19 @@ contract BlockHashStorageTest is Test, TestBlocks {
     bytes4 constant INVALID_PROPOSED_BLOCK_OVERWRITE = bytes4(keccak256("InvalidProposedBlockOverwrite()"));
 
     BlockHashProxy blockHashProxy;
+    uint initialCheckpointHeight;
+
 
     function setUp() public {
-        blockHashProxy = new BlockHashProxy(blockHeights[0], blockHashes[0], retargetBlockHash, 5);
+        initialCheckpointHeight = blockHeights[0];
+        blockHashProxy = new BlockHashProxy(initialCheckpointHeight, blockHashes[0], retargetBlockHash, 5);
+    }
+
+    function inspectBlockchain(uint256 depth) public view {
+      for (uint256 i = initialCheckpointHeight; i < depth + initialCheckpointHeight; i++) {
+        console.log("Block ", i, ":");
+        console.logBytes32(blockHashProxy.getBlockHash(i));
+      }
     }
 
     function fetchBlockSubset(uint256 start, uint256 end) public view returns (bytes32[] memory) {
@@ -48,6 +58,24 @@ contract BlockHashStorageTest is Test, TestBlocks {
 
     function testSimpleAddBlocks() public { 
       bytes32[] memory blocks = fetchBlockSubset(0, 5);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, 1);
+    }
+
+    function testAddBlockFailsOnInvalidSafeBlock() public {
+      bytes32[] memory blocks = fetchBlockSubset(0, 5);
+      vm.expectRevert(INVALID_SAFE_BLOCK);
+      blockHashProxy.AddBlock(blockHeights[1], blockHeights[1], blockHeights[6], blocks, 1);
+    }
+
+    function testAddBlocksFailsOnInvalidConfirmationBlock() public {
+      bytes32[] memory blocks = fetchBlockSubset(0, 5);
+      vm.expectRevert(INVALID_CONFIRMATION_BLOCK);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[5], blocks, 1);
+    }
+
+    function testAddBlockDoesNothingWhenProposedBlockExists() public {
+      bytes32[] memory blocks = fetchBlockSubset(0, 5);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, 1);
       blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, 1);
     }
 }
