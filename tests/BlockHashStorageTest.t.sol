@@ -77,5 +77,5 @@ contract BlockHashStorageTest is Test, TestBlocks {
       bytes32[] memory blocks = fetchBlockSubset(0, 5);
       blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, 1);
       blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, 1);
-    }
+   }
 }

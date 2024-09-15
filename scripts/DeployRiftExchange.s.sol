@@ -90,7 +90,7 @@ contract DeployRiftExchange is Script {
         address depositTokenAddress = address(0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0);
         uint256 proverReward = 2 * 10 ** 6; // 2 USDT
         uint256 releaserReward = 1 * 10 ** 6; // 1 USDT
-        bytes32 verificationKeyHash = hex"007d8ce052805633178ef6141f1caabdb9249c92b94831c79253d6c748ee4fe8";
+        bytes32 verificationKeyHash = hex"002b2f29a3996a28656c70ab4ad23a156e0a0805d8f14c677036b5d1935ed226";
         address payable protocolAddress = payable(address(0x9FEEf1C10B8cD9Bc6c6B6B44ad96e07F805decaf));
 
         console.log("Deploying RiftExchange...");
@@ -118,7 +118,7 @@ contract DeployRiftExchange is Script {
             msg.sender,
             verificationKeyHash,
             // +5 is industry standard (block explorers show this as 6 "confirmations")
-            5
+            1
         ) returns (RiftExchange riftExchange) {
             console.log("RiftExchange deployed at:", address(riftExchange));
         } catch Error(string memory reason) {
