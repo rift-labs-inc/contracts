@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.2;
 
-import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
-import { BlockHashStorage } from "./BlockHashStorage.sol";
-import { console } from "forge-std/console.sol";
-import { Owned } from "../lib/solmate/src/auth/Owned.sol";
+import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
+import {BlockHashStorage} from "./BlockHashStorage.sol";
+import {console} from "forge-std/console.sol";
+import {Owned} from "../lib/solmate/src/auth/Owned.sol";
 
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
@@ -97,7 +97,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         Created,
         Unlocked,
         Completed,
-        ExpiredAndAddedBackToVault
+        Expired
     }
 
     struct SwapReservation {
@@ -186,7 +186,7 @@ contract RiftExchange is BlockHashStorage, Owned {
 
         // [1] create new liquidity provider if it doesn't exist
         if (liquidityProviders[msg.sender].depositVaultIndexes.length == 0) {
-            liquidityProviders[msg.sender] = LiquidityProvider({ depositVaultIndexes: new uint256[](0) });
+            liquidityProviders[msg.sender] = LiquidityProvider({depositVaultIndexes: new uint256[](0)});
         }
 
         // [2] merge liquidity into vault with the same exchange rate if it exists
@@ -636,15 +636,15 @@ contract RiftExchange is BlockHashStorage, Owned {
             }
 
             // [3] mark as expired
-            expiredSwapReservation.state = ReservationState.ExpiredAndAddedBackToVault;
+            expiredSwapReservation.state = ReservationState.Expired;
         }
     }
 
     function verifyExpiredReservations(uint256[] memory expiredReservationIndexes) internal view {
         for (uint256 i = 0; i < expiredReservationIndexes.length; i++) {
             if (
-                block.timestamp - swapReservations[expiredReservationIndexes[i]].reservationTimestamp
-                    < RESERVATION_LOCKUP_PERIOD
+                block.timestamp - swapReservations[expiredReservationIndexes[i]].reservationTimestamp <
+                RESERVATION_LOCKUP_PERIOD
             ) {
                 revert ReservationNotExpired();
             }

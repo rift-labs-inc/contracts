@@ -881,7 +881,7 @@ contract LiquidityDepositTest is ExchangeTestBase {
     //         RiftExchange.SwapReservation memory reservation = riftExchange.getReservation(i);
     //         assertEq(
     //             uint(reservation.state),
-    //             uint(RiftExchange.ReservationState.ExpiredAndAddedBackToVault),
+    //             uint(RiftExchange.ReservationState.Expired),
     //             "Reservation should be marked as expired"
     //         );
     //     }
