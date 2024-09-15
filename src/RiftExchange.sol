@@ -618,6 +618,10 @@ contract RiftExchange is BlockHashStorage, Owned {
         return swapReservations.length;
     }
 
+    function getAreDepositsPaused() public view returns (bool) {
+        return isDepositNewLiquidityPaused;
+    }
+
     //--------- INTERNAL FUNCTIONS ---------//
 
     // unreserved balance + expired reservations
