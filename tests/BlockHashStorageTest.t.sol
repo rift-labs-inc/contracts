@@ -10,19 +10,21 @@ import { TestBlocks } from "./TestBlocks.sol";
 contract BlockHashProxy is BlockHashStorage {
     constructor(
         uint256 initialCheckpointHeight,
+        uint256 currentChainwork,
         bytes32 initialBlockHash,
         bytes32 initialRetargetBlockHash,
         uint8 minimumConfirmationDelta
-    ) BlockHashStorage(initialCheckpointHeight, initialBlockHash, initialRetargetBlockHash, minimumConfirmationDelta) { }
+    ) BlockHashStorage(initialCheckpointHeight, currentChainwork, initialBlockHash, initialRetargetBlockHash, minimumConfirmationDelta) { }
 
     function AddBlock(
         uint256 safeBlockHeight,
         uint256 proposedBlockHeight,
         uint256 confirmationBlockHeight,
+        uint256 confirmationChainwork,
         bytes32[] memory blockHashes,
         uint256 proposedBlockIndex
     ) public {
-        addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, proposedBlockIndex);
+        addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, confirmationChainwork, blockHashes, proposedBlockIndex);
     }
 }
 
@@ -35,10 +37,9 @@ contract BlockHashStorageTest is Test, TestBlocks {
     BlockHashProxy blockHashProxy;
     uint initialCheckpointHeight;
 
-
     function setUp() public {
         initialCheckpointHeight = blockHeights[0];
-        blockHashProxy = new BlockHashProxy(initialCheckpointHeight, blockHashes[0], retargetBlockHash, 5);
+        blockHashProxy = new BlockHashProxy(initialCheckpointHeight, blockChainworks[0], blockHashes[0], retargetBlockHash, 5);
     }
 
     function inspectBlockchain(uint256 depth) public view {
@@ -58,24 +59,24 @@ contract BlockHashStorageTest is Test, TestBlocks {
 
     function testSimpleAddBlocks() public { 
       bytes32[] memory blocks = fetchBlockSubset(0, 5);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, 1);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
     }
 
     function testAddBlockFailsOnInvalidSafeBlock() public {
       bytes32[] memory blocks = fetchBlockSubset(0, 5);
       vm.expectRevert(INVALID_SAFE_BLOCK);
-      blockHashProxy.AddBlock(blockHeights[1], blockHeights[1], blockHeights[6], blocks, 1);
+      blockHashProxy.AddBlock(blockHeights[1], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
     }
 
     function testAddBlocksFailsOnInvalidConfirmationBlock() public {
       bytes32[] memory blocks = fetchBlockSubset(0, 5);
       vm.expectRevert(INVALID_CONFIRMATION_BLOCK);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[5], blocks, 1);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[5], blockChainworks[5], blocks, 1);
     }
 
     function testAddBlockDoesNothingWhenProposedBlockExists() public {
       bytes32[] memory blocks = fetchBlockSubset(0, 5);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, 1);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, 1);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
    }
 }

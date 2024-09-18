@@ -12,6 +12,7 @@ contract BlockHashStorage {
     mapping(uint256 => bytes32) blockchain; // block height => block hash
     uint256 public currentHeight;
     uint256 public currentConfirmationHeight;
+    uint256 public currentChainwork;
     // 5 is industry standard
     uint8 immutable minimumConfirmationDelta;
 
@@ -19,11 +20,13 @@ contract BlockHashStorage {
 
     constructor(
         uint256 safeBlockHeight,
+        uint256 _currentChainwork,
         bytes32 blockHash,
         bytes32 retargetBlockHash,
         uint8 _minimumConfirmationDelta
     ) {
         currentHeight = safeBlockHeight;
+        currentChainwork = _currentChainwork;
         blockchain[safeBlockHeight] = blockHash;
         blockchain[calculateRetargetHeight(uint64(safeBlockHeight))] = retargetBlockHash;
         minimumConfirmationDelta = _minimumConfirmationDelta;
@@ -34,10 +37,12 @@ contract BlockHashStorage {
         uint256 safeBlockHeight,
         uint256 proposedBlockHeight,
         uint256 confirmationBlockHeight,
+        uint256 confirmationChainwork,
         bytes32[] memory blockHashes, // from safe block to confirmation block
         uint256 proposedBlockIndex // in blockHashes array
     ) internal {
         uint256 _tipBlockHeight = currentHeight;
+        uint256 _tipChainwork = currentChainwork;
 
         // [0] ensure confirmation block matches block in blockchain (if < minimumConfirmationDelta away from proposed block)
         if (confirmationBlockHeight - proposedBlockHeight < minimumConfirmationDelta) {
@@ -55,8 +60,8 @@ contract BlockHashStorage {
         if (blockchain[proposedBlockHeight] == blockHashes[proposedBlockIndex]) {
             return;
         }
-        // [3] ensure proposed block is not being overwritten unless longer chain (higher confirmation block height)
-        else if (blockchain[proposedBlockHeight] != bytes32(0) && currentConfirmationHeight >= confirmationBlockHeight)
+        // [3] ensure proposed block is not being overwritten unless longer chain (higher confirmation chainwork)
+        else if (blockchain[proposedBlockHeight] != bytes32(0) && _tipChainwork >= confirmationChainwork)
         {
             revert InvalidProposedBlockOverwrite();
         }

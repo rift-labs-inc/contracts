@@ -145,6 +145,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint256 initialCheckpointHeight,
         bytes32 initialBlockHash,
         bytes32 initialRetargetBlockHash,
+        uint256  initialChainwork,
         address verifierContractAddress,
         address depositTokenAddress,
         uint256 _proverReward,
@@ -154,7 +155,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes32 _circuitVerificationKey,
         uint8 minimumConfirmationDelta
     )
-        BlockHashStorage(initialCheckpointHeight, initialBlockHash, initialRetargetBlockHash, minimumConfirmationDelta)
+        BlockHashStorage(initialCheckpointHeight, initialChainwork, initialBlockHash, initialRetargetBlockHash,  minimumConfirmationDelta)
         Owned(_owner)
     {
         // [0] set verifier contract and deposit token
@@ -447,6 +448,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint64 safe_block_height;
         uint64 safe_block_height_delta;
         uint64 confirmation_block_height_delta;
+        uint256 confirmation_chainwork;
         uint64 retarget_block_height;
         bytes32[] block_hashes;
     }
@@ -461,6 +463,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint32 safeBlockHeight,
         uint64 proposedBlockHeight,
         uint64 confirmationBlockHeight,
+        uint256 confirmationChainwork,
         bytes32[] memory blockHashes,
         bytes memory proof
     ) public {
@@ -475,7 +478,6 @@ contract RiftExchange is BlockHashStorage, Owned {
             bufferedAmountsToReserve += satsToWei(satsAmount, exchangeRate);
         }
 
-        // build proof public inputs
         bytes memory publicInputs = buildProofPublicInputs(
             ProofPublicInputs({
                 natural_txid: bitcoinTxId,
@@ -486,6 +488,7 @@ contract RiftExchange is BlockHashStorage, Owned {
                 safe_block_height: safeBlockHeight,
                 safe_block_height_delta: proposedBlockHeight - safeBlockHeight,
                 confirmation_block_height_delta: confirmationBlockHeight - proposedBlockHeight,
+                confirmation_chainwork: confirmationChainwork,
                 retarget_block_height: calculateRetargetHeight(proposedBlockHeight),
                 block_hashes: blockHashes
             })
@@ -499,6 +502,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             safeBlockHeight,
             proposedBlockHeight,
             confirmationBlockHeight,
+            confirmationChainwork,
             blockHashes,
             proposedBlockHeight - safeBlockHeight
         );
@@ -512,15 +516,6 @@ contract RiftExchange is BlockHashStorage, Owned {
         // [4] payout prover (proving gas cost + proving reward)
         uint256 proverPayoutAmount = proverReward;
         DEPOSIT_TOKEN.transfer(msg.sender, proverPayoutAmount);
-
-        // [5] subtract prover fee from prepaid fee amount
-        addBlock(
-            safeBlockHeight,
-            proposedBlockHeight,
-            confirmationBlockHeight,
-            blockHashes,
-            proposedBlockHeight - safeBlockHeight
-        );
 
         // [6] if prepaid fee amount is negative, subtract from total swap amount
         if (swapReservation.prepaidFeeAmount < 0) {

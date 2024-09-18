@@ -61,6 +61,7 @@ contract ExchangeTestBase is Test, TestBlocks {
             initialCheckpointHeight,
             initialBlockHash,
             initialRetargetBlockHash,
+            blockChainworks[0],
             verifierContractAddress,
             address(usdt),
             proverReward,

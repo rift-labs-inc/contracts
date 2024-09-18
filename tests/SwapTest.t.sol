@@ -70,6 +70,7 @@ contract SwapTest is ExchangeTestBase {
             safeBlockHeight: uint32(blockHeights[0]),
             proposedBlockHeight: blockHeights[1],
             confirmationBlockHeight: blockHeights[6],
+            confirmationChainwork: blockChainworks[6],
             blockHashes: subsetblockHashes,
             proof: proof
         });

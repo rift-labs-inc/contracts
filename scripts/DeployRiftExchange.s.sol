@@ -53,6 +53,28 @@ contract DeployRiftExchange is Script {
         return blockHeight;
     }
 
+    function fetchChainwork(bytes32 blockHash) public returns (uint256) {
+        string memory blockHashStr = vm.toString(blockHash);
+        // Prepare the curl command with jq
+        string[] memory curlInputs = new string[](3);
+        curlInputs[0] = "bash";
+        curlInputs[1] = "-c";
+        curlInputs[2] = string(
+            abi.encodePacked(
+                'curl --data-binary \'{"jsonrpc": "1.0", "id": "curltest", "method": "getblock", "params": ["',
+                _substring(blockHashStr, int256(bytes(blockHashStr).length) - 2, 2),
+                '"]}\' -H \'content-type: text/plain;\' -s ',
+                vm.envString("BITCOIN_RPC"),
+                " | jq -r '.result.chainwork'"
+            )
+        );
+        // Execute the curl command and get the result
+        string memory chainWorkHex = vm.toString(vm.ffi(curlInputs));
+        string memory blockHeightStr = _substring(chainWorkHex, int256(bytes(chainWorkHex).length) - 2, 2);
+        uint256 chainwork = stringToUint(blockHeightStr);
+        return chainwork;
+}
+
     function fetchBlockHash(uint256 height) public returns (bytes32) {
         string memory heightStr = vm.toString(height);
         string[] memory curlInputs = new string[](3);
@@ -84,13 +106,15 @@ contract DeployRiftExchange is Script {
         uint256 initialCheckpointHeight = fetchChainHeight() - 6;
         bytes32 initialBlockHash = fetchBlockHash(initialCheckpointHeight);
         bytes32 initialRetargetBlockHash = fetchBlockHash(calculateRetargetHeight(initialCheckpointHeight));
+        uint256 initialChainwork = fetchChainwork(initialBlockHash);
+
 
         // Define the constructor arguments
         address verifierContractAddress = address(0x3B6041173B80E77f038f3F2C0f9744f04837185e);
-        address depositTokenAddress = address(0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0);
+        address depositTokenAddress = address(0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0); //USDT on sepolia
         uint256 proverReward = 2 * 10 ** 6; // 2 USDT
         uint256 releaserReward = 1 * 10 ** 6; // 1 USDT
-        bytes32 verificationKeyHash = hex"002b2f29a3996a28656c70ab4ad23a156e0a0805d8f14c677036b5d1935ed226";
+        bytes32 verificationKeyHash = bytes32(0x007bcdb7ee0e28808292c85204587c49ac3ced1ebc6d23e73632b50ad380795f);
         address payable protocolAddress = payable(address(0x9FEEf1C10B8cD9Bc6c6B6B44ad96e07F805decaf));
 
         console.log("Deploying RiftExchange...");
@@ -99,6 +123,7 @@ contract DeployRiftExchange is Script {
         console.log("initialCheckpointHeight:", initialCheckpointHeight);
         console.log("initialBlockHash:");
         console.logBytes32(initialBlockHash);
+        console.log("initialChainwork:", initialChainwork);
         console.log("verifierContractAddress:", verifierContractAddress);
         console.log("depositTokenAddress:", depositTokenAddress);
         console.log("proverReward:", proverReward);
@@ -110,6 +135,7 @@ contract DeployRiftExchange is Script {
             initialCheckpointHeight,
             initialBlockHash,
             initialRetargetBlockHash,
+            initialChainwork,
             verifierContractAddress,
             depositTokenAddress,
             proverReward,
