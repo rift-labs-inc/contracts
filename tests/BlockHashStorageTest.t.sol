@@ -20,11 +20,11 @@ contract BlockHashProxy is BlockHashStorage {
         uint256 safeBlockHeight,
         uint256 proposedBlockHeight,
         uint256 confirmationBlockHeight,
-        uint256 confirmationChainwork,
         bytes32[] memory blockHashes,
+        uint256[] memory blockChainworks,
         uint256 proposedBlockIndex
     ) public {
-        addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, confirmationChainwork, blockHashes, proposedBlockIndex);
+      addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, blockChainworks, proposedBlockIndex);
     }
 }
 
@@ -57,26 +57,38 @@ contract BlockHashStorageTest is Test, TestBlocks {
         return subset;
     }
 
+    function fetchChainworkSubset(uint256 start, uint256 end) public view returns (uint256[] memory) {
+        uint256[] memory subset = new uint256[](end - start);
+        for (uint256 i = start; i < end; i++) {
+            subset[i - start] = blockChainworks[i];
+        }
+        return subset;
+    }
+
     function testSimpleAddBlocks() public { 
       bytes32[] memory blocks = fetchBlockSubset(0, 5);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
+      uint256[] memory chainworks = fetchChainworkSubset(0, 5);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks, 1);
     }
 
     function testAddBlockFailsOnInvalidSafeBlock() public {
       bytes32[] memory blocks = fetchBlockSubset(0, 5);
+      uint256[] memory chainworks = fetchChainworkSubset(0, 5);
       vm.expectRevert(INVALID_SAFE_BLOCK);
-      blockHashProxy.AddBlock(blockHeights[1], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
+      blockHashProxy.AddBlock(blockHeights[1], blockHeights[1], blockHeights[6], blocks, chainworks, 1);
     }
 
     function testAddBlocksFailsOnInvalidConfirmationBlock() public {
       bytes32[] memory blocks = fetchBlockSubset(0, 5);
+      uint256[] memory chainworks = fetchChainworkSubset(0, 5);
       vm.expectRevert(INVALID_CONFIRMATION_BLOCK);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[5], blockChainworks[5], blocks, 1);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[5], blocks, chainworks, 1);
     }
 
     function testAddBlockDoesNothingWhenProposedBlockExists() public {
       bytes32[] memory blocks = fetchBlockSubset(0, 5);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
+      uint256[] memory chainworks = fetchChainworkSubset(0, 5);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks, 1);
+      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks, 1);
    }
 }

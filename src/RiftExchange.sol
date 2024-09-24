@@ -155,7 +155,13 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes32 _circuitVerificationKey,
         uint8 minimumConfirmationDelta
     )
-        BlockHashStorage(initialCheckpointHeight, initialChainwork, initialBlockHash, initialRetargetBlockHash,  minimumConfirmationDelta)
+        BlockHashStorage(
+          initialCheckpointHeight,
+          initialChainwork,
+          initialBlockHash,
+          initialRetargetBlockHash, 
+          minimumConfirmationDelta
+        )
         Owned(_owner)
     {
         // [0] set verifier contract and deposit token
@@ -441,6 +447,7 @@ contract RiftExchange is BlockHashStorage, Owned {
 
     struct ProofPublicInputs {
         bytes32 natural_txid;
+        bytes32 merkle_root;
         bytes32 lp_reservation_hash;
         bytes32 order_nonce;
         uint64 lp_count;
@@ -448,10 +455,9 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint64 safe_block_height;
         uint64 safe_block_height_delta;
         uint64 confirmation_block_height_delta;
-        uint256 confirmation_chainwork;
-        uint64 retarget_block_height;
         bytes32[] block_hashes;
-    }
+        uint256[] block_chainworks;
+}
 
     function buildProofPublicInputs(ProofPublicInputs memory inputs) public pure returns (bytes memory) {
         return abi.encode(inputs);
@@ -460,11 +466,12 @@ contract RiftExchange is BlockHashStorage, Owned {
     function proposeTransactionProof(
         uint256 swapReservationIndex,
         bytes32 bitcoinTxId,
+        bytes32 merkleRoot,
         uint32 safeBlockHeight,
         uint64 proposedBlockHeight,
         uint64 confirmationBlockHeight,
-        uint256 confirmationChainwork,
         bytes32[] memory blockHashes,
+        uint256[] memory blockChainworks,
         bytes memory proof
     ) public {
         // [0] retrieve swap order
@@ -481,16 +488,16 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes memory publicInputs = buildProofPublicInputs(
             ProofPublicInputs({
                 natural_txid: bitcoinTxId,
+                merkle_root: merkleRoot,
                 lp_reservation_hash: swapReservation.lpReservationHash,
                 order_nonce: swapReservation.nonce,
                 lp_count: uint64(swapReservation.vaultIndexes.length),
-                retarget_block_hash: getBlockHash(calculateRetargetHeight(proposedBlockHeight)),
+                retarget_block_hash: getBlockHash(calculateRetargetHeight(safeBlockHeight)),
                 safe_block_height: safeBlockHeight,
                 safe_block_height_delta: proposedBlockHeight - safeBlockHeight,
                 confirmation_block_height_delta: confirmationBlockHeight - proposedBlockHeight,
-                confirmation_chainwork: confirmationChainwork,
-                retarget_block_height: calculateRetargetHeight(proposedBlockHeight),
-                block_hashes: blockHashes
+                block_hashes: blockHashes,
+                block_chainworks: blockChainworks
             })
         );
 
@@ -502,8 +509,8 @@ contract RiftExchange is BlockHashStorage, Owned {
             safeBlockHeight,
             proposedBlockHeight,
             confirmationBlockHeight,
-            confirmationChainwork,
             blockHashes,
+            blockChainworks,
             proposedBlockHeight - safeBlockHeight
         );
 

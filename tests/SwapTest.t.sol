@@ -61,17 +61,28 @@ contract SwapTest is ExchangeTestBase {
         subsetblockHashes[5] = blockHashes[5];
         subsetblockHashes[6] = blockHashes[6];
 
+        uint256[] memory subsetblockChainworks = new uint256[](7);
+        subsetblockChainworks[0] = blockChainworks[0];
+        subsetblockChainworks[1] = blockChainworks[1];
+        subsetblockChainworks[2] = blockChainworks[2];
+        subsetblockChainworks[3] = blockChainworks[3];
+        subsetblockChainworks[4] = blockChainworks[4];
+        subsetblockChainworks[5] = blockChainworks[5];
+        subsetblockChainworks[6] = blockChainworks[6];
+
         vm.startPrank(hypernode1);
 
         vm.warp(1726339441);
+
         riftExchange.proposeTransactionProof({
             swapReservationIndex: 0,
             bitcoinTxId: keccak256(hex"beef"),
+            merkleRoot: keccak256(hex"dead"),
             safeBlockHeight: uint32(blockHeights[0]),
             proposedBlockHeight: blockHeights[1],
             confirmationBlockHeight: blockHeights[6],
-            confirmationChainwork: blockChainworks[6],
             blockHashes: subsetblockHashes,
+            blockChainworks: subsetblockChainworks,
             proof: proof
         });
 
