@@ -1,7 +1,7 @@
 {
   "transactions": [
     {
-      "hash": "0x583b70ae8c06258eaba8de73185bc011e912c75ba1282bae2c929ec757b537f0",
+      "hash": null,
       "transactionType": "CREATE",
       "contractName": "RiftExchange",
       "contractAddress": "0xb76d89c6d8d0e7d759801e026cc700c24d9919b9",
@@ -32,44 +32,11 @@
       "isFixedGasLimit": false
     }
   ],
-  "receipts": [
-    {
-      "status": "0x1",
-      "cumulativeGasUsed": "0xafafbb",
-      "logs": [
-        {
-          "address": "0xb76d89c6d8d0e7d759801e026cc700c24d9919b9",
-          "topics": [
-            "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
-            "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "0x000000000000000000000000b0cb90a9a3dfd99811858d18f0515475e1c88ade"
-          ],
-          "data": "0x",
-          "blockHash": "0x392c37fe6f946fcb240d34748da4930f67128cddfef8b090503700bb36735d43",
-          "blockNumber": "0x670e0d",
-          "transactionHash": "0x583b70ae8c06258eaba8de73185bc011e912c75ba1282bae2c929ec757b537f0",
-          "transactionIndex": "0x22",
-          "logIndex": "0x29",
-          "removed": false
-        }
-      ],
-      "logsBloom": "0x01000000000000000001000000000000000000000000000000800000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000020000000000000000000800000000000000000000000000000000400000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000020000004000000000000000000000000000000000000000000000000000000000000",
-      "type": "0x2",
-      "transactionHash": "0x583b70ae8c06258eaba8de73185bc011e912c75ba1282bae2c929ec757b537f0",
-      "transactionIndex": "0x22",
-      "blockHash": "0x392c37fe6f946fcb240d34748da4930f67128cddfef8b090503700bb36735d43",
-      "blockNumber": "0x670e0d",
-      "gasUsed": "0x3724b4",
-      "effectiveGasPrice": "0xe81eb5c0b",
-      "from": "0xb0cb90a9a3dfd99811858d18f0515475e1c88ade",
-      "to": null,
-      "contractAddress": "0xb76d89c6d8d0e7d759801e026cc700c24d9919b9"
-    }
-  ],
+  "receipts": [],
   "libraries": [],
   "pending": [],
   "returns": {},
-  "timestamp": 1727220721,
+  "timestamp": 1727220566,
   "chain": 11155111,
   "commit": "20f7380"
 }
