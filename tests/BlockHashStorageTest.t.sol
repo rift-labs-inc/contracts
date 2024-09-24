@@ -14,9 +14,6 @@ contract BlockHashProxy is BlockHashStorage {
         bytes32 initialBlockHash,
         bytes32 initialRetargetBlockHash,
         uint8 minimumConfirmationDelta
-<<<<<<< HEAD
-    ) BlockHashStorage(initialCheckpointHeight, currentChainwork, initialBlockHash, initialRetargetBlockHash, minimumConfirmationDelta) { }
-=======
     )
         BlockHashStorage(
             initialCheckpointHeight,
@@ -26,7 +23,6 @@ contract BlockHashProxy is BlockHashStorage {
             minimumConfirmationDelta
         )
     {}
->>>>>>> 8d57778 (fee router)
 
     function AddBlock(
         uint256 safeBlockHeight,
@@ -36,9 +32,6 @@ contract BlockHashProxy is BlockHashStorage {
         bytes32[] memory blockHashes,
         uint256 proposedBlockIndex
     ) public {
-<<<<<<< HEAD
-        addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, confirmationChainwork, blockHashes, proposedBlockIndex);
-=======
         addBlock(
             safeBlockHeight,
             proposedBlockHeight,
@@ -47,7 +40,6 @@ contract BlockHashProxy is BlockHashStorage {
             blockHashes,
             proposedBlockIndex
         );
->>>>>>> 8d57778 (fee router)
     }
 }
 
@@ -62,9 +54,6 @@ contract BlockHashStorageTest is Test, TestBlocks {
 
     function setUp() public {
         initialCheckpointHeight = blockHeights[0];
-<<<<<<< HEAD
-        blockHashProxy = new BlockHashProxy(initialCheckpointHeight, blockChainworks[0], blockHashes[0], retargetBlockHash, 5);
-=======
         blockHashProxy = new BlockHashProxy(
             initialCheckpointHeight,
             blockChainworks[0],
@@ -72,7 +61,6 @@ contract BlockHashStorageTest is Test, TestBlocks {
             retargetBlockHash,
             5
         );
->>>>>>> 8d57778 (fee router)
     }
 
     function inspectBlockchain(uint256 depth) public view {
@@ -90,26 +78,26 @@ contract BlockHashStorageTest is Test, TestBlocks {
         return subset;
     }
 
-    function testSimpleAddBlocks() public { 
-      bytes32[] memory blocks = fetchBlockSubset(0, 5);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
+    function testSimpleAddBlocks() public {
+        bytes32[] memory blocks = fetchBlockSubset(0, 5);
+        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
     }
 
     function testAddBlockFailsOnInvalidSafeBlock() public {
-      bytes32[] memory blocks = fetchBlockSubset(0, 5);
-      vm.expectRevert(INVALID_SAFE_BLOCK);
-      blockHashProxy.AddBlock(blockHeights[1], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
+        bytes32[] memory blocks = fetchBlockSubset(0, 5);
+        vm.expectRevert(INVALID_SAFE_BLOCK);
+        blockHashProxy.AddBlock(blockHeights[1], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
     }
 
     function testAddBlocksFailsOnInvalidConfirmationBlock() public {
-      bytes32[] memory blocks = fetchBlockSubset(0, 5);
-      vm.expectRevert(INVALID_CONFIRMATION_BLOCK);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[5], blockChainworks[5], blocks, 1);
+        bytes32[] memory blocks = fetchBlockSubset(0, 5);
+        vm.expectRevert(INVALID_CONFIRMATION_BLOCK);
+        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[5], blockChainworks[5], blocks, 1);
     }
 
     function testAddBlockDoesNothingWhenProposedBlockExists() public {
-      bytes32[] memory blocks = fetchBlockSubset(0, 5);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
-      blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
-   }
+        bytes32[] memory blocks = fetchBlockSubset(0, 5);
+        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
+        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blockChainworks[6], blocks, 1);
+    }
 }
