@@ -7,15 +7,7 @@ import { RiftExchange } from "../src/RiftExchange.sol";
 import { WETH } from "../lib/solmate/src/tokens/WETH.sol";
 import { ERC20 } from "../lib/solmate/src/tokens/ERC20.sol";
 import { TestBlocks } from "./TestBlocks.sol";
-
-// Mock USDT contract
-contract MockUSDT is ERC20 {
-    constructor() ERC20("Tether USD", "USDT", 6) { } // USDT has 6 decimals
-
-    function mint(address to, uint256 amount) public {
-        _mint(to, amount);
-    }
-}
+import { MockUSDT } from "./MockUSDT.sol";
 
 contract MockVerifier {
     function verifyProof(bytes32 programVKey, bytes calldata publicValues, bytes calldata proofBytes) external view { }
