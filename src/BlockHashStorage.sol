@@ -61,8 +61,12 @@ contract BlockHashStorage {
             return;
         }
         // [3] ensure proposed block is not being overwritten unless longer chain (higher confirmation chainwork)
+<<<<<<< HEAD
         else if (blockchain[proposedBlockHeight] != bytes32(0) && _tipChainwork >= confirmationChainwork)
         {
+=======
+        else if (blockchain[proposedBlockHeight] != bytes32(0) && _tipChainwork >= confirmationChainwork) {
+>>>>>>> 8d57778 (fee router)
             revert InvalidProposedBlockOverwrite();
         }
 

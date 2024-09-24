@@ -145,7 +145,11 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint256 initialCheckpointHeight,
         bytes32 initialBlockHash,
         bytes32 initialRetargetBlockHash,
+<<<<<<< HEAD
         uint256  initialChainwork,
+=======
+        uint256 initialChainwork,
+>>>>>>> 8d57778 (fee router)
         address verifierContractAddress,
         address depositTokenAddress,
         uint256 _proverReward,

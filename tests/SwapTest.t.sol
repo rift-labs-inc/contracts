@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
-import { console } from "forge-std/console.sol";
-import { ExchangeTestBase } from "./ExchangeTestBase.t.sol";
-import { RiftExchange } from "../src/RiftExchange.sol";
+import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
+import {ExchangeTestBase} from "./ExchangeTestBase.t.sol";
+import {RiftExchange} from "../src/RiftExchange.sol";
 
 contract SwapTest is ExchangeTestBase {
     function depositLiquidity() public {

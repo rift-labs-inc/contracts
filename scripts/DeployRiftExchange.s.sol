@@ -63,7 +63,11 @@ contract DeployRiftExchange is Script {
             abi.encodePacked(
                 'curl --data-binary \'{"jsonrpc": "1.0", "id": "curltest", "method": "getblock", "params": ["',
                 _substring(blockHashStr, int256(bytes(blockHashStr).length) - 2, 2),
+<<<<<<< HEAD
                 '"]}\' -H \'content-type: text/plain;\' -s ',
+=======
+                "\"]}' -H 'content-type: text/plain;' -s ",
+>>>>>>> 8d57778 (fee router)
                 vm.envString("BITCOIN_RPC"),
                 " | jq -r '.result.chainwork'"
             )
@@ -73,7 +77,11 @@ contract DeployRiftExchange is Script {
         string memory blockHeightStr = _substring(chainWorkHex, int256(bytes(chainWorkHex).length) - 2, 2);
         uint256 chainwork = stringToUint(blockHeightStr);
         return chainwork;
+<<<<<<< HEAD
 }
+=======
+    }
+>>>>>>> 8d57778 (fee router)
 
     function fetchBlockHash(uint256 height) public returns (bytes32) {
         string memory heightStr = vm.toString(height);
@@ -107,7 +115,10 @@ contract DeployRiftExchange is Script {
         bytes32 initialBlockHash = fetchBlockHash(initialCheckpointHeight);
         bytes32 initialRetargetBlockHash = fetchBlockHash(calculateRetargetHeight(initialCheckpointHeight));
         uint256 initialChainwork = fetchChainwork(initialBlockHash);
+<<<<<<< HEAD
 
+=======
+>>>>>>> 8d57778 (fee router)
 
         // Define the constructor arguments
         address verifierContractAddress = address(0x3B6041173B80E77f038f3F2C0f9744f04837185e);
