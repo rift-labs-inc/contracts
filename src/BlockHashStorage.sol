@@ -62,6 +62,7 @@ contract BlockHashStorage {
         // [3] ensure proposed block is not being overwritten unless longer chain (higher confirmation chainwork)
         else if (blockchain[proposedBlockHeight] != bytes32(0) && _tipChainwork >= blockChainworks[blockChainworks.length - 1])
         {
+
             revert InvalidProposedBlockOverwrite();
         }
 

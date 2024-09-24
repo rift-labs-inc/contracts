@@ -1,10 +1,10 @@
 // // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
-import { console } from "forge-std/console.sol";
-import { BlockHashStorage } from "../src/BlockHashStorage.sol";
-import { TestBlocks } from "./TestBlocks.sol";
+import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
+import {BlockHashStorage} from "../src/BlockHashStorage.sol";
+import {TestBlocks} from "./TestBlocks.sol";
 
 // exposes the internal block hash storage functions for testing
 contract BlockHashProxy is BlockHashStorage {
@@ -14,7 +14,15 @@ contract BlockHashProxy is BlockHashStorage {
         bytes32 initialBlockHash,
         bytes32 initialRetargetBlockHash,
         uint8 minimumConfirmationDelta
-    ) BlockHashStorage(initialCheckpointHeight, currentChainwork, initialBlockHash, initialRetargetBlockHash, minimumConfirmationDelta) { }
+    )
+        BlockHashStorage(
+            initialCheckpointHeight,
+            currentChainwork,
+            initialBlockHash,
+            initialRetargetBlockHash,
+            minimumConfirmationDelta
+        )
+    {}
 
     function AddBlock(
         uint256 safeBlockHeight,
@@ -25,6 +33,7 @@ contract BlockHashProxy is BlockHashStorage {
         uint256 proposedBlockIndex
     ) public {
       addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, blockChainworks, proposedBlockIndex);
+
     }
 }
 
@@ -39,14 +48,20 @@ contract BlockHashStorageTest is Test, TestBlocks {
 
     function setUp() public {
         initialCheckpointHeight = blockHeights[0];
-        blockHashProxy = new BlockHashProxy(initialCheckpointHeight, blockChainworks[0], blockHashes[0], retargetBlockHash, 5);
+        blockHashProxy = new BlockHashProxy(
+            initialCheckpointHeight,
+            blockChainworks[0],
+            blockHashes[0],
+            retargetBlockHash,
+            5
+        );
     }
 
     function inspectBlockchain(uint256 depth) public view {
-      for (uint256 i = initialCheckpointHeight; i < depth + initialCheckpointHeight; i++) {
-        console.log("Block ", i, ":");
-        console.logBytes32(blockHashProxy.getBlockHash(i));
-      }
+        for (uint256 i = initialCheckpointHeight; i < depth + initialCheckpointHeight; i++) {
+            console.log("Block ", i, ":");
+            console.logBytes32(blockHashProxy.getBlockHash(i));
+        }
     }
 
     function fetchBlockSubset(uint256 start, uint256 end) public view returns (bytes32[] memory) {

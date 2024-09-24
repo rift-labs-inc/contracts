@@ -145,7 +145,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint256 initialCheckpointHeight,
         bytes32 initialBlockHash,
         bytes32 initialRetargetBlockHash,
-        uint256  initialChainwork,
+        uint256 initialChainwork,
         address verifierContractAddress,
         address depositTokenAddress,
         uint256 _proverReward,
@@ -156,11 +156,11 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint8 minimumConfirmationDelta
     )
         BlockHashStorage(
-          initialCheckpointHeight,
-          initialChainwork,
-          initialBlockHash,
-          initialRetargetBlockHash, 
-          minimumConfirmationDelta
+            initialCheckpointHeight,
+            initialChainwork,
+            initialBlockHash,
+            initialRetargetBlockHash,
+            minimumConfirmationDelta
         )
         Owned(_owner)
     {
