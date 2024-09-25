@@ -39,7 +39,7 @@ broadcast = "broadcast"
 allow_paths = []
 include_paths = []
 force = false
-evm_version = "london"
+evm_version = "cancun"
 gas_reports = [ "*",]
 gas_reports_ignore = []
 auto_detect_solc = true
@@ -78,6 +78,8 @@ path = "./"
 
 [rpc_endpoints]
 sepolia = "${SEPOLIA_RPC_URL}"
+holesky = "${HOLESKY_RPC_URL}"
 
 [etherscan]
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
+holesky = { key = "${ETHERSCAN_API_KEY}" }

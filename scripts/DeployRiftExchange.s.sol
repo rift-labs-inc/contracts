@@ -110,10 +110,10 @@ contract DeployRiftExchange is Script {
 
         // Define the constructor arguments
         address verifierContractAddress = address(0x3B6041173B80E77f038f3F2C0f9744f04837185e);
-        address depositTokenAddress = address(0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0); //USDT on sepolia
+        address depositTokenAddress = address(0x5150C7b0113650F9D17203290CEA88E52644a4a2); //USDT on sepolia
         uint256 proverReward = 2 * 10 ** 6; // 2 USDT
         uint256 releaserReward = 1 * 10 ** 6; // 1 USDT
-        bytes32 verificationKeyHash = bytes32(0x007bcdb7ee0e28808292c85204587c49ac3ced1ebc6d23e73632b50ad380795f);
+        bytes32 verificationKeyHash = bytes32(0x0061d250131bfc972b5c14686b99e95d625c8322295c82f3672d6bbd29900fc8);
         address payable protocolAddress = payable(address(0x9FEEf1C10B8cD9Bc6c6B6B44ad96e07F805decaf));
 
         console.log("Deploying RiftExchange...");

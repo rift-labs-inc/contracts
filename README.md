@@ -1,7 +1,7 @@
 # contracts
 
-### Deploy to Rift Exchange to Sepolia
+### Deploy to Rift Exchange to Holesky 
 ```
-source .env && forge script --chain sepolia scripts/DeployRiftExchange.s.sol:DeployRiftExchange --rpc-url $SEPOLIA_RPC_URL --broadcast --sender $SEPOLIA_SENDER --private-key $SEPOLIA_PRIVATE_KEY --verify --etherscan-api-key $ETHERSCAN_API_KEY --ffi -vvvv
+source .env && forge script --chain holesky scripts/DeployRiftExchange.s.sol:DeployRiftExchange --rpc-url $HOLESKY_RPC_URL --broadcast --sender $TESTNET_SENDER --private-key $TESTNET_PRIVATE_KEY --verify --etherscan-api-key $ETHERSCAN_API_KEY --ffi -vvvv
 ```
 
