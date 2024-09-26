@@ -72,6 +72,22 @@ contract BlockHashStorageTest is Test, TestBlocks {
         return subset;
     }
 
+    function fakeBlocks(uint256 amount) pure public returns (bytes32[] memory){
+      bytes32[] memory blocks = new bytes32[](amount);
+        for (uint256 i = 0; i < amount; i++) {
+          blocks[i] = bytes32(uint256(i));
+        }
+        return blocks;
+    }
+
+    function fakeChainworks(uint256 amount) pure public returns (uint256[] memory){
+      uint256[] memory chainworks = new uint256[](amount);
+        for (uint256 i = 0; i < amount; i++) {
+          chainworks[i] = i;
+        }
+        return chainworks;
+    }
+
     function fetchChainworkSubset(uint256 start, uint256 end) public view returns (uint256[] memory) {
         uint256[] memory subset = new uint256[](end - start);
         for (uint256 i = start; i < end; i++) {
@@ -106,4 +122,38 @@ contract BlockHashStorageTest is Test, TestBlocks {
       blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks, 1);
       blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks, 1);
    }
+
+   function testAddsRetargetBlockWhenRetargetBlockChangesMidAdd() public {
+     bytes32[] memory blocks = fakeBlocks(1563);
+     uint256[] memory chainworks = fakeChainworks(1563);
+     console.log("BlockHeights", blockHeights[0]);
+     uint256 safe_height = 861295;
+     uint256 proposed_height = 862848;
+     uint256 confirmation_height = 862858;
+     blockHashProxy.AddBlock(safe_height, proposed_height, confirmation_height, blocks, chainworks, 1552);
+     console.log("retarget block new theo");
+     console.logBytes32(blockHashProxy.getBlockHash(862848));
+     console.log("retarget block new theo -1");
+     console.logBytes32(blockHashProxy.getBlockHash(862847));
+     console.log("retarget block new theo +1");
+     console.logBytes32(blockHashProxy.getBlockHash(862849));
+   }
+
+   function testAddsRetargetBlockWhenRetargetBlockIsConfirmationBlock() public {
+     bytes32[] memory blocks = fakeBlocks(1554);
+     uint256[] memory chainworks = fakeChainworks(1554);
+     console.log("BlockHeights", blockHeights[0]);
+     uint256 safe_height = 861295;
+     uint256 proposed_height = 862843;
+     uint256 confirmation_height = 862849;
+     blockHashProxy.AddBlock(safe_height, proposed_height, confirmation_height, blocks, chainworks, proposed_height-safe_height);
+     console.log("retarget block new theo");
+     console.logBytes32(blockHashProxy.getBlockHash(862848));
+     console.log("retarget block new theo -1");
+     console.logBytes32(blockHashProxy.getBlockHash(862847));
+     console.log("retarget block new theo +1");
+     console.logBytes32(blockHashProxy.getBlockHash(862849));
+   }
+
+
 }

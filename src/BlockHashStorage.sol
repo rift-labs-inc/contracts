@@ -43,6 +43,7 @@ contract BlockHashStorage {
         uint256 _tipBlockHeight = currentHeight;
         uint256 _tipChainwork = chainworks[currentHeight];
 
+
         // [0] ensure confirmation block matches block in blockchain (if < minimumConfirmationDelta away from proposed block)
         if (confirmationBlockHeight - proposedBlockHeight < minimumConfirmationDelta) {
             if (blockHashes[blockHashes.length - 1] != blockchain[confirmationBlockHeight]) {
@@ -50,21 +51,25 @@ contract BlockHashStorage {
             }
         }
 
+
         // [1] validate safeBlock height
         if (safeBlockHeight > _tipBlockHeight) {
             revert InvalidSafeBlock();
         }
 
+
         // [2] return if block already exists
         if (blockchain[proposedBlockHeight] == blockHashes[proposedBlockIndex]) {
             return;
         }
+
         // [3] ensure proposed block is not being overwritten unless longer chain (higher confirmation chainwork)
         else if (blockchain[proposedBlockHeight] != bytes32(0) && _tipChainwork >= blockChainworks[blockChainworks.length - 1])
         {
 
             revert InvalidProposedBlockOverwrite();
         }
+
 
         // [4] ADDITION/OVERWRITE (proposed block > tip block)
         if (proposedBlockHeight > _tipBlockHeight) {
@@ -81,15 +86,27 @@ contract BlockHashStorage {
                 }
             }
         }
+
         // [5] INSERTION - (safe block < proposed block < tip block)
         else if (proposedBlockHeight < _tipBlockHeight) {
             blockchain[proposedBlockHeight] = blockHashes[proposedBlockIndex];
             chainworks[proposedBlockHeight] = blockChainworks[proposedBlockIndex];
         }
 
+
         // [6] update current height
         if (proposedBlockHeight > currentHeight) {
             currentHeight = proposedBlockHeight;
+        }
+
+        // [7] calculate what the new retarget block height should be, if it changed
+        uint256 safeRetargetHeight = calculateRetargetHeight(proposedBlockHeight);
+        uint256 tipRetargetHeight = calculateRetargetHeight(confirmationBlockHeight);
+        if (tipRetargetHeight != safeRetargetHeight) {
+          // [8] inject the retarget block hash 
+          uint256 retargetHeightIndex = confirmationBlockHeight - tipRetargetHeight; 
+          blockchain[tipRetargetHeight] = blockHashes[retargetHeightIndex];
+          chainworks[tipRetargetHeight] = blockChainworks[retargetHeightIndex];
         }
 
         emit BlocksAdded(safeBlockHeight, blockHashes.length);
