@@ -432,7 +432,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         // transfer protocol fee
         //DEPOSIT_TOKEN.transfer(protocolAddress, protocolFee);
 
-        emit LiquidityReserved(msg.sender, getReservationLength() - 1, orderNonce);
+        emit LiquidityReserved(sender, getReservationLength() - 1, orderNonce);
     }
 
     function hashToFieldUpper(bytes32 data) internal pure returns (bytes32) {
