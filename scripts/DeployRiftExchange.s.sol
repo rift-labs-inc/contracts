@@ -98,19 +98,43 @@ contract DeployRiftExchange is Script {
         return retargetHeight;
     }
 
+    struct ChainSpecificAddresses{
+      address verifierContractAddress;
+      address depositTokenAddress;
+    }
+
+    function selectAddressesByChainId() public view returns(ChainSpecificAddresses memory) {
+      // arbitrum sepolia
+      if(block.chainid == 421614){
+        return ChainSpecificAddresses(
+          address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
+          address(0xC4af7CFe412805C4A751321B7b0799ca9b8dbE56)
+        );
+      }
+      // holesky
+      if(block.chainid == 17000){
+        return ChainSpecificAddresses(
+          address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
+          address(0x5150C7b0113650F9D17203290CEA88E52644a4a2)
+        );
+      }
+    }
+
     function run() external {
         vm.startBroadcast();
 
-        console.log("Starting deployment...");
+        console.log("Deploying RiftExchange on chain with ID:", block.chainid);
 
         uint256 initialCheckpointHeight = fetchChainHeight() - 6;
         bytes32 initialBlockHash = fetchBlockHash(initialCheckpointHeight);
         bytes32 initialRetargetBlockHash = fetchBlockHash(calculateRetargetHeight(initialCheckpointHeight));
         uint256 initialChainwork = fetchChainwork(initialBlockHash);
+      
+        ChainSpecificAddresses memory addresses = selectAddressesByChainId();
 
         // Define the constructor arguments
-        address verifierContractAddress = address(0x3B6041173B80E77f038f3F2C0f9744f04837185e);
-        address depositTokenAddress = address(0x5150C7b0113650F9D17203290CEA88E52644a4a2); //USDT on sepolia
+        address verifierContractAddress = addresses.verifierContractAddress;
+        address depositTokenAddress = addresses.depositTokenAddress;
         uint256 proverReward = 2 * 10 ** 6; // 2 USDT
         uint256 releaserReward = 1 * 10 ** 6; // 1 USDT
         bytes32 verificationKeyHash = bytes32(0x0061d250131bfc972b5c14686b99e95d625c8322295c82f3672d6bbd29900fc8);
