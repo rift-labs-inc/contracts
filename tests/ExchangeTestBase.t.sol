@@ -48,7 +48,7 @@ contract ExchangeTestBase is Test, TestBlocks {
 
         uint256 proverReward = 2 * 10 ** 6; // 2 USDT
         uint256 releaserReward = 1 * 10 ** 6; // 1 USDT
-        address payable protocolAddress = payable(address(this));
+        address payable protocolAddress = payable(address(0xdeadbeef));
 
         riftExchange = new RiftExchange(
             initialCheckpointHeight,

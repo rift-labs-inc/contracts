@@ -28,10 +28,11 @@ contract SwapTest is ExchangeTestBase {
     function testSwapEndtoEndFreshContract() public {
         depositLiquidity();
         uint192 amountOut = 100e6;
+        uint256 protocolFee = uint256((amountOut * uint192(riftExchange.protocolFeeBP())) / 10000);
         vm.startPrank(testAddress);
         // Get some USDT for reservation fees, approve it for the exchange
-        deal(address(usdt), testAddress, 3.1e6);
-        usdt.approve(address(riftExchange), 3.1e6);
+        //deal(address(usdt), testAddress, 3.1e6);
+        //usdt.approve(address(riftExchange), 3.1e6);
 
         // Get the balance USDT before the swap for the testAddress
         uint256 balanceBefore = usdt.balanceOf(testAddress);
@@ -43,7 +44,7 @@ contract SwapTest is ExchangeTestBase {
         uint192[] memory amountsToReserve = new uint192[](1);
         amountsToReserve[0] = amountOut;
         uint256[] memory noOverwrites = new uint256[](0);
-        riftExchange.reserveLiquidity(vaultIndexesToReserve, amountsToReserve, testAddress, 0, noOverwrites);
+        riftExchange.reserveLiquidity(msg.sender, vaultIndexesToReserve, amountsToReserve, testAddress, 0, noOverwrites);
 
         vm.stopPrank();
 
@@ -98,7 +99,7 @@ contract SwapTest is ExchangeTestBase {
         uint256 balance = usdt.balanceOf(testAddress);
         console.log("Balance before swap: ", balanceBefore);
         console.log("Balance after swap:  ", balance);
-        assertEq(balance, amountOut, "Balance should be equal to amountOut");
+        assertEq(balance, amountOut-protocolFee, "Balance should be equal to amountOut");
 
         // Balance increase of the hypernode
         uint256 balanceHypernodeAfter = usdt.balanceOf(hypernode1);

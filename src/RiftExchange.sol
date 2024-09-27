@@ -111,7 +111,6 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes32 nonce; // sent in bitcoin tx calldata from buyer -> lps to prevent replay attacks
         uint256 totalSatsInputInlcudingProxyFee; // in sats (including proxy wallet fee)
         uint256 totalSwapOutputAmount; // in token's smallest unit (wei, μUSDT, etc)
-        int256 prepaidFeeAmount;
         uint256 proposedBlockHeight;
         bytes32 proposedBlockHash;
         uint256[] vaultIndexes;
@@ -319,6 +318,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     function reserveLiquidity(
+        address sender,
         uint256[] memory vaultIndexesToReserve,
         uint192[] memory amountsToReserve,
         address ethPayoutAddress,
@@ -340,13 +340,13 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
 
         // [1] calculate fees
-        uint256 protocolFee = (combinedAmountsToReserve * SCALE * protocolFeeBP) / (BP_SCALE * SCALE);
+        //uint256 protocolFee = (combinedAmountsToReserve * SCALE * protocolFeeBP) / (BP_SCALE * SCALE);
         // TODO multiply proof gas cost by block base fee converted to usdt from uniswap twap weth/usdt pool
         // + ((PROOF_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
-        uint256 proverFee = proverReward;
+        //uint256 proverFee = proverReward;
         // TODO multiply proof gas cost by block base fee converted to usdt from uniswap twap weth/usdt pool
         // + ((PROOF_GAS_COST * block.basefee) * MIN_ORDER_GAS_MULTIPLIER);
-        uint256 releaserFee = releaserReward;
+        //uint256 releaserFee = releaserReward;
         // TODO: get historical priority fee and potentially add it ^
 
         // [3] verify proposed expired swap reservation indexes
@@ -384,13 +384,12 @@ contract RiftExchange is BlockHashStorage, Owned {
             SwapReservation storage swapReservationToOverwrite = swapReservations[expiredSwapReservationIndexes[0]];
 
             // [2] overwrite expired reservation
-            swapReservationToOverwrite.owner = msg.sender;
+            swapReservationToOverwrite.owner = sender;
             swapReservationToOverwrite.state = ReservationState.Created;
             swapReservationToOverwrite.ethPayoutAddress = ethPayoutAddress;
             swapReservationToOverwrite.reservationTimestamp = uint32(block.timestamp);
             // swapReservationToOverwrite.confirmationBlockHeight = 0;
             swapReservationToOverwrite.unlockTimestamp = 0;
-            swapReservationToOverwrite.prepaidFeeAmount = int256(proverFee + releaserFee);
             swapReservationToOverwrite.totalSwapOutputAmount = combinedAmountsToReserve;
             swapReservationToOverwrite.nonce = orderNonce;
             swapReservationToOverwrite.totalSatsInputInlcudingProxyFee = totalSatsInputInlcudingProxyFee;
@@ -403,14 +402,13 @@ contract RiftExchange is BlockHashStorage, Owned {
         else {
             swapReservations.push(
                 SwapReservation({
-                    owner: msg.sender,
+                    owner: sender,
                     state: ReservationState.Created,
                     confirmationBlockHeight: 0,
                     ethPayoutAddress: ethPayoutAddress,
                     reservationTimestamp: uint32(block.timestamp),
                     unlockTimestamp: 0,
                     totalSwapOutputAmount: combinedAmountsToReserve,
-                    prepaidFeeAmount: int256(proverFee + releaserFee),
                     nonce: orderNonce,
                     totalSatsInputInlcudingProxyFee: totalSatsInputInlcudingProxyFee,
                     proposedBlockHeight: 0,
@@ -429,10 +427,10 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
 
         // transfer fees from user to contract
-        DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), (proverFee + protocolFee + releaserFee));
+        //DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), (proverFee + protocolFee + releaserFee));
 
         // transfer protocol fee
-        DEPOSIT_TOKEN.transfer(protocolAddress, protocolFee);
+        //DEPOSIT_TOKEN.transfer(protocolAddress, protocolFee);
 
         emit LiquidityReserved(msg.sender, getReservationLength() - 1, orderNonce);
     }
@@ -524,14 +522,6 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint256 proverPayoutAmount = proverReward;
         DEPOSIT_TOKEN.transfer(msg.sender, proverPayoutAmount);
 
-        // [6] if prepaid fee amount is negative, subtract from total swap amount
-        if (swapReservation.prepaidFeeAmount < 0) {
-            swapReservation.totalSwapOutputAmount += uint256(swapReservation.prepaidFeeAmount);
-
-            // [7] reset prepaid fee amount to 0 so its not subtracted again during release
-            swapReservation.prepaidFeeAmount = 0;
-        }
-
         emit ProofProposed(msg.sender, swapReservationIndex, swapReservation.nonce);
     }
 
@@ -558,21 +548,15 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint releaserPayoutAmount = releaserReward;
         DEPOSIT_TOKEN.transfer(msg.sender, releaserPayoutAmount);
 
-        // [6] subtract releaser fee from prepaid fee amount
-        swapReservation.prepaidFeeAmount -= int256(releaserPayoutAmount);
-
-        // [7] if prepaid fee amount is negative, subtract from total swap amount
-        if (swapReservation.prepaidFeeAmount < 0) {
-            swapReservation.totalSwapOutputAmount += uint256(swapReservation.prepaidFeeAmount);
-
-            // [8] reset prepaid fee amount to 0 (perhaps unnecessary)
-            swapReservation.prepaidFeeAmount = 0;
-        }
+        uint256 protocolFee = (swapReservation.totalSwapOutputAmount * protocolFeeBP) / BP_SCALE;
 
         // [9] release funds to buyers ETH payout address
-        DEPOSIT_TOKEN.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapOutputAmount);
+        DEPOSIT_TOKEN.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapOutputAmount-protocolFee);
+        
+        // [10] get protocol fee 
+        DEPOSIT_TOKEN.transfer(protocolAddress, protocolFee);
 
-        // [10] mark swap reservation as completed
+        // [11] mark swap reservation as completed
         swapReservation.state = ReservationState.Completed;
 
         emit SwapComplete(swapReservationIndex, swapReservation.nonce);
@@ -720,3 +704,4 @@ contract RiftExchange is BlockHashStorage, Owned {
         swapReservations[swapReservationIndex].state = state;
     }
 }
+
