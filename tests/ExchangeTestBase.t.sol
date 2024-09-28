@@ -46,9 +46,7 @@ contract ExchangeTestBase is Test, TestBlocks {
 
         usdt = new MockUSDT();
 
-        uint256 proverReward = 2 * 10 ** 6; // 2 USDT
-        uint256 releaserReward = 1 * 10 ** 6; // 1 USDT
-        address payable protocolAddress = payable(address(0xdeadbeef));
+        address payable initialFeeRouterAddress = payable(address(0xdeadbeef));
 
         riftExchange = new RiftExchange(
             initialCheckpointHeight,
@@ -57,10 +55,8 @@ contract ExchangeTestBase is Test, TestBlocks {
             blockChainworks[0],
             verifierContractAddress,
             address(usdt),
-            proverReward,
-            releaserReward,
-            protocolAddress,
-            protocolAddress,
+            initialFeeRouterAddress,
+            initialFeeRouterAddress,
             hex"deadbeef",
             minimumConfirmationDelta
         );

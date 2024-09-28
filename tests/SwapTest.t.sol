@@ -17,9 +17,7 @@ contract SwapTest is ExchangeTestBase {
             // 1000 USDT
             1000e6,
             596302900000000,
-            0x001463dff5f8da08ca226ba01f59722c62ad9b9b3eaa,
-            -1,
-            -1
+            0x001463dff5f8da08ca226ba01f59722c62ad9b9b3eaa
         );
         console.log("Liquidity Deposited...");
         vm.stopPrank();
@@ -44,7 +42,14 @@ contract SwapTest is ExchangeTestBase {
         uint192[] memory amountsToReserve = new uint192[](1);
         amountsToReserve[0] = amountOut;
         uint256[] memory noOverwrites = new uint256[](0);
-        riftExchange.reserveLiquidity(msg.sender, vaultIndexesToReserve, amountsToReserve, testAddress, 0, noOverwrites);
+        riftExchange.reserveLiquidity(
+            msg.sender,
+            vaultIndexesToReserve,
+            amountsToReserve,
+            testAddress,
+            0,
+            noOverwrites
+        );
 
         vm.stopPrank();
 
@@ -75,7 +80,7 @@ contract SwapTest is ExchangeTestBase {
 
         vm.warp(1726339441);
 
-        riftExchange.proposeTransactionProof({
+        riftExchange.submitSwapProof({
             swapReservationIndex: 0,
             bitcoinTxId: keccak256(hex"beef"),
             merkleRoot: keccak256(hex"dead"),
@@ -99,7 +104,7 @@ contract SwapTest is ExchangeTestBase {
         uint256 balance = usdt.balanceOf(testAddress);
         console.log("Balance before swap: ", balanceBefore);
         console.log("Balance after swap:  ", balance);
-        assertEq(balance, amountOut-protocolFee, "Balance should be equal to amountOut");
+        assertEq(balance, amountOut - protocolFee, "Balance should be equal to amountOut");
 
         // Balance increase of the hypernode
         uint256 balanceHypernodeAfter = usdt.balanceOf(hypernode1);

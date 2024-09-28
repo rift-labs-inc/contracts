@@ -98,33 +98,36 @@ contract DeployRiftExchange is Script {
         return retargetHeight;
     }
 
-    struct ChainSpecificAddresses{
-      address verifierContractAddress;
-      address depositTokenAddress;
+    struct ChainSpecificAddresses {
+        address verifierContractAddress;
+        address depositTokenAddress;
     }
 
-    function selectAddressesByChainId() public view returns(ChainSpecificAddresses memory) {
-      // arbitrum sepolia
-      if(block.chainid == 421614){
-        return ChainSpecificAddresses(
-          address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
-          address(0xC4af7CFe412805C4A751321B7b0799ca9b8dbE56)
-        );
-      }
-      // holesky
-      if(block.chainid == 17000){
-        return ChainSpecificAddresses(
-          address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
-          address(0x5150C7b0113650F9D17203290CEA88E52644a4a2)
-        );
-      }
-      // arbitrum
-      if(block.chainid == 42161){
-        return ChainSpecificAddresses(
-          address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
-          address(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9)
-        );
-      }
+    function selectAddressesByChainId() public view returns (ChainSpecificAddresses memory) {
+        // arbitrum sepolia
+        if (block.chainid == 421614) {
+            return
+                ChainSpecificAddresses(
+                    address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
+                    address(0xC4af7CFe412805C4A751321B7b0799ca9b8dbE56)
+                );
+        }
+        // holesky
+        if (block.chainid == 17000) {
+            return
+                ChainSpecificAddresses(
+                    address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
+                    address(0x5150C7b0113650F9D17203290CEA88E52644a4a2)
+                );
+        }
+        // arbitrum
+        if (block.chainid == 42161) {
+            return
+                ChainSpecificAddresses(
+                    address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
+                    address(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9)
+                );
+        }
     }
 
     function run() external {
@@ -136,16 +139,14 @@ contract DeployRiftExchange is Script {
         bytes32 initialBlockHash = fetchBlockHash(initialCheckpointHeight);
         bytes32 initialRetargetBlockHash = fetchBlockHash(calculateRetargetHeight(initialCheckpointHeight));
         uint256 initialChainwork = fetchChainwork(initialBlockHash);
-      
+
         ChainSpecificAddresses memory addresses = selectAddressesByChainId();
 
         // Define the constructor arguments
         address verifierContractAddress = addresses.verifierContractAddress;
         address depositTokenAddress = addresses.depositTokenAddress;
-        uint256 proverReward = 2 * 10 ** 6; // 2 USDT
-        uint256 releaserReward = 1 * 10 ** 6; // 1 USDT
         bytes32 verificationKeyHash = bytes32(0x0061d250131bfc972b5c14686b99e95d625c8322295c82f3672d6bbd29900fc8);
-        address payable protocolAddress = payable(address(0x9FEEf1C10B8cD9Bc6c6B6B44ad96e07F805decaf));
+        address payable initialFeeRouterAddress = payable(address(0x9FEEf1C10B8cD9Bc6c6B6B44ad96e07F805decaf)); // TODO: update this with the actual fee router address
 
         console.log("Deploying RiftExchange...");
         console.log("initialRetargetBlockHash:");
@@ -156,9 +157,7 @@ contract DeployRiftExchange is Script {
         console.log("initialChainwork:", initialChainwork);
         console.log("verifierContractAddress:", verifierContractAddress);
         console.log("depositTokenAddress:", depositTokenAddress);
-        console.log("proverReward:", proverReward);
-        console.log("releaserReward:", releaserReward);
-        console.log("protocolAddress:", protocolAddress);
+        console.log("protocolAddress:", initialFeeRouterAddress);
 
         // Try deploying RiftExchange
         try
@@ -169,9 +168,7 @@ contract DeployRiftExchange is Script {
                 initialChainwork,
                 verifierContractAddress,
                 depositTokenAddress,
-                proverReward,
-                releaserReward,
-                protocolAddress,
+                initialFeeRouterAddress,
                 msg.sender,
                 verificationKeyHash,
                 // +5 is industry standard (block explorers show this as 6 "confirmations")
