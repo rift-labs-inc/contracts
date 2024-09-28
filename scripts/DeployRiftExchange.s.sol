@@ -118,6 +118,13 @@ contract DeployRiftExchange is Script {
           address(0x5150C7b0113650F9D17203290CEA88E52644a4a2)
         );
       }
+      // arbitrum
+      if(block.chainid == 42161){
+        return ChainSpecificAddresses(
+          address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
+          address(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9)
+        );
+      }
     }
 
     function run() external {
