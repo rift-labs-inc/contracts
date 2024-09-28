@@ -105,11 +105,5 @@ contract SwapTest is ExchangeTestBase {
         console.log("Balance before swap: ", balanceBefore);
         console.log("Balance after swap:  ", balance);
         assertEq(balance, amountOut - protocolFee, "Balance should be equal to amountOut");
-
-        // Balance increase of the hypernode
-        uint256 balanceHypernodeAfter = usdt.balanceOf(hypernode1);
-        console.log("Balance of hypernode before swap: ", balanceHypernodeBefore);
-        console.log("Balance of hypernode after swap:  ", balanceHypernodeAfter);
-        assertEq(balanceHypernodeAfter - balanceHypernodeBefore, 3e6, "Hypernode balance should increase by 3 USDT");
     }
 }

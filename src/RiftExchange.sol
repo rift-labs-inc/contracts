@@ -402,7 +402,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         swapReservation.state = ReservationState.Proved;
         swapReservation.liquidityUnlockedTimestamp = uint64(block.timestamp) + CHALLENGE_PERIOD;
         swapReservation.proposedBlockHeight = proposedBlockHeight;
-        swapReservation.proposedBlockHash = blockHashes[proposedBlockHeight - safeBlockHeight - 1];
+        swapReservation.proposedBlockHash = blockHashes[proposedBlockHeight - safeBlockHeight];
 
         emit ProofSubmitted(msg.sender, swapReservationIndex, swapReservation.nonce);
     }
