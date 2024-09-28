@@ -101,8 +101,8 @@ contract RiftExchange is BlockHashStorage, Owned {
     uint8 public protocolFeeBP = 10; // 10 bps = 0.1%
     address feeRouterAddress;
 
-    DepositVault[] public depositVaults;
-    SwapReservation[] public swapReservations;
+    DepositVault[] depositVaults;
+    SwapReservation[] swapReservations;
     mapping(address => LiquidityProvider) liquidityProviders;
 
     // --------- EVENTS --------- //
@@ -477,6 +477,14 @@ contract RiftExchange is BlockHashStorage, Owned {
 
     function getAreDepositsPaused() public view returns (bool) {
         return isDepositNewLiquidityPaused;
+    }
+
+    function getReservation(uint256 reservationIndex) public view returns (SwapReservation memory) {
+        return swapReservations[reservationIndex];
+    }
+
+    function getDepositVault(uint256 depositIndex) public view returns (DepositVault memory) {
+        return depositVaults[depositIndex];
     }
 
     //--------- INTERNAL FUNCTIONS ---------//
