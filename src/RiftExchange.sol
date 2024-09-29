@@ -65,6 +65,7 @@ contract RiftExchange is BlockHashStorage, Owned {
 
     struct DepositVault {
         address owner;
+        uint64 depositTimestamp;
         uint256 initialBalance; // in token's smallest unit (wei, μUSDT, etc)
         uint256 unreservedBalance; // in token's smallest unit (wei, μUSDT, etc) - true balance = unreservedBalance + sum(ReservationState.Created && expired SwapReservations on this vault)
         uint256 withdrawnAmount; // in token's smallest unit (wei, μUSDT, etc)
@@ -171,6 +172,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         depositVaults.push(
             DepositVault({
                 owner: msg.sender,
+                depositTimestamp: uint64(block.timestamp),
                 initialBalance: depositAmount,
                 unreservedBalance: depositAmount,
                 withdrawnAmount: 0,
@@ -220,6 +222,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             depositVaults.push(
                 DepositVault({
                     owner: vault.owner,
+                    depositTimestamp: uint64(block.timestamp),
                     initialBalance: unreservedBalance,
                     unreservedBalance: unreservedBalance,
                     withdrawnAmount: 0,
