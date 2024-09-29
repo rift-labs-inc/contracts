@@ -26,7 +26,7 @@ contract ExchangeTestBase is Test, TestBlocks {
     address hypernode1 = address(0x444444);
 
     bytes4 constant DEPOSIT_TOO_LOW = bytes4(keccak256("DepositTooLow()"));
-    bytes4 constant INVALID_VAULT_UPDATE = bytes4(keccak256("InvalidVaultUpdate()"));
+    bytes4 constant INVALID_EXCHANGE_RATE = bytes4(keccak256("InvalidExchangeRate()"));
     bytes4 constant NOT_VAULT_OWNER = bytes4(keccak256("NotVaultOwner()"));
     bytes4 constant DEPOSIT_TOO_HIGH = bytes4(keccak256("DepositTooHigh()"));
     bytes4 constant INVALID_BTC_PAYOUT_ADDRESS = bytes4(keccak256("InvalidBitcoinAddress()"));
@@ -56,7 +56,7 @@ contract ExchangeTestBase is Test, TestBlocks {
             verifierContractAddress,
             address(usdt),
             initialFeeRouterAddress,
-            initialFeeRouterAddress,
+            address(this),
             hex"deadbeef",
             minimumConfirmationDelta
         );
