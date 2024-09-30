@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.0;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
-import {RiftExchange} from "../src/RiftExchange.sol";
-import {WETH} from "../lib/solmate/src/tokens/WETH.sol";
-import {ERC20} from "../lib/solmate/src/tokens/ERC20.sol";
-import {TestBlocks} from "./TestBlocks.sol";
-import {MockUSDT} from "./MockUSDT.sol";
+import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
+import { RiftExchange } from "../src/RiftExchange.sol";
+import { WETH } from "../lib/solmate/src/tokens/WETH.sol";
+import { ERC20 } from "../lib/solmate/src/tokens/ERC20.sol";
+import { TestBlocks } from "./TestBlocks.sol";
+import { MockUSDT } from "./MockUSDT.sol";
 
 contract MockVerifier {
-    function verifyProof(bytes32 programVKey, bytes calldata publicValues, bytes calldata proofBytes) external view {}
+    function verifyProof(bytes32 programVKey, bytes calldata publicValues, bytes calldata proofBytes) external view { }
 }
 
 contract ExchangeTestBase is Test, TestBlocks {
@@ -31,8 +31,7 @@ contract ExchangeTestBase is Test, TestBlocks {
     bytes4 constant DEPOSIT_TOO_HIGH = bytes4(keccak256("DepositTooHigh()"));
     bytes4 constant INVALID_BTC_PAYOUT_ADDRESS = bytes4(keccak256("InvalidBitcoinAddress()"));
     bytes4 constant RESERVATION_FEE_TOO_LOW = bytes4(keccak256("ReservationFeeTooLow()"));
-    bytes4 constant INVALID_UPDATE_WITH_ACTIVE_RESERVATIONS =
-        bytes4(keccak256("InvalidUpdateWithActiveReservations()"));
+    bytes4 constant INVALID_UPDATE_WITH_ACTIVE_RESERVATIONS = bytes4(keccak256("InvalidUpdateWithActiveReservations()"));
     bytes4 constant NOT_ENOUGH_LIQUIDITY = bytes4(keccak256("NotEnoughLiquidity()"));
     bytes4 constant RESERVATION_AMOUNT_TOO_LOW = bytes4(keccak256("ReservationAmountTooLow()"));
     bytes4 constant RESERVATION_EXPIRED = bytes4(keccak256("ReservationExpired()"));

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.2;
 
-import {console} from "forge-std/console.sol";
-import {Owned} from "../lib/solmate/src/auth/Owned.sol";
+import { console } from "forge-std/console.sol";
+import { Owned } from "../lib/solmate/src/auth/Owned.sol";
 
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
@@ -56,7 +56,7 @@ contract FeeRouter is Owned {
         require(_partitionOwners.length == _percentages.length, "Mismatch in owners and percentages");
         uint256 totalManagers = 0;
         uint256 totalPercentage = 0;
-        for (uint i = 0; i < _partitionOwners.length; i++) {
+        for (uint256 i = 0; i < _partitionOwners.length; i++) {
             totalPercentage += _percentages[i];
             partitions.push(Partition(_partitionOwners[i], _percentages[i], 0, _isManager[i]));
             if (_isManager[i]) {
@@ -79,7 +79,7 @@ contract FeeRouter is Owned {
 
         if (referrer != address(0)) {
             uint256 referralFee = amount / 2;
-            (bool success, ) = payable(referrer).call{value: referralFee}("");
+            (bool success,) = payable(referrer).call{ value: referralFee }("");
             require(success, "Referral fee transfer failed");
             amount -= referralFee;
         }
@@ -87,7 +87,7 @@ contract FeeRouter is Owned {
         totalReceived += amount;
 
         uint256 remainingWei = amount;
-        for (uint i = 0; i < partitions.length - 1; i++) {
+        for (uint256 i = 0; i < partitions.length - 1; i++) {
             uint256 partitionAmount = (amount * partitions[i].percentage) / BP_SCALE;
             partitions[i].balance += partitionAmount;
             remainingWei -= partitionAmount;
@@ -115,7 +115,7 @@ contract FeeRouter is Owned {
         uint256 amount = partitions[partitionIndex].balance;
         partitions[partitionIndex].balance = 0;
 
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        (bool success,) = payable(msg.sender).call{ value: amount }("");
         require(depositToken.transfer(msg.sender, amount), "Token transfer failed");
 
         require(success, "Transfer failed");
@@ -137,7 +137,7 @@ contract FeeRouter is Owned {
         Proposal storage newProposal = proposals[proposalCount];
         uint256 totalManagers = 0;
 
-        for (uint i = 0; i < _newPartitions.length; i++) {
+        for (uint256 i = 0; i < _newPartitions.length; i++) {
             if (_newPartitions[i].isManager) {
                 totalManagers += 1;
             }
@@ -172,7 +172,7 @@ contract FeeRouter is Owned {
 
         // Implement new partition layout
         delete partitions;
-        for (uint i = 0; i < proposal.newPartitions.length; i++) {
+        for (uint256 i = 0; i < proposal.newPartitions.length; i++) {
             partitions.push(proposal.newPartitions[i]);
         }
 
@@ -180,7 +180,7 @@ contract FeeRouter is Owned {
     }
 
     function withdrawAllPartitions() internal {
-        for (uint i = 0; i < partitions.length; i++) {
+        for (uint256 i = 0; i < partitions.length; i++) {
             if (partitions[i].balance > 0) {
                 uint256 amount = partitions[i].balance;
                 partitions[i].balance = 0;
@@ -190,7 +190,7 @@ contract FeeRouter is Owned {
     }
 
     function isManager(address _address) internal view returns (bool) {
-        for (uint i = 0; i < partitions.length; i++) {
+        for (uint256 i = 0; i < partitions.length; i++) {
             if (partitions[i].owner == _address && partitions[i].isManager) {
                 return true;
             }
@@ -201,7 +201,7 @@ contract FeeRouter is Owned {
     function validateNewPartitions(Partition[] memory _newPartitions) internal pure returns (bool) {
         uint256 totalPercentage = 0;
         uint256 managerCount = 0;
-        for (uint i = 0; i < _newPartitions.length; i++) {
+        for (uint256 i = 0; i < _newPartitions.length; i++) {
             totalPercentage += _newPartitions[i].percentage;
             if (_newPartitions[i].isManager) {
                 managerCount++;

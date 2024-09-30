@@ -106,27 +106,21 @@ contract DeployRiftExchange is Script {
     function selectAddressesByChainId() public view returns (ChainSpecificAddresses memory) {
         // arbitrum sepolia
         if (block.chainid == 421614) {
-            return
-                ChainSpecificAddresses(
-                    address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
-                    address(0xC4af7CFe412805C4A751321B7b0799ca9b8dbE56)
-                );
+            return ChainSpecificAddresses(
+                address(0x3B6041173B80E77f038f3F2C0f9744f04837185e), address(0xC4af7CFe412805C4A751321B7b0799ca9b8dbE56)
+            );
         }
         // holesky
         if (block.chainid == 17000) {
-            return
-                ChainSpecificAddresses(
-                    address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
-                    address(0x5150C7b0113650F9D17203290CEA88E52644a4a2)
-                );
+            return ChainSpecificAddresses(
+                address(0x3B6041173B80E77f038f3F2C0f9744f04837185e), address(0x5150C7b0113650F9D17203290CEA88E52644a4a2)
+            );
         }
         // arbitrum
         if (block.chainid == 42161) {
-            return
-                ChainSpecificAddresses(
-                    address(0x3B6041173B80E77f038f3F2C0f9744f04837185e),
-                    address(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9)
-                );
+            return ChainSpecificAddresses(
+                address(0x3B6041173B80E77f038f3F2C0f9744f04837185e), address(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9)
+            );
         }
     }
 
@@ -160,21 +154,19 @@ contract DeployRiftExchange is Script {
         console.log("protocolAddress:", initialFeeRouterAddress);
 
         // Try deploying RiftExchange
-        try
-            new RiftExchange(
-                initialCheckpointHeight,
-                initialBlockHash,
-                initialRetargetBlockHash,
-                initialChainwork,
-                verifierContractAddress,
-                depositTokenAddress,
-                initialFeeRouterAddress,
-                msg.sender,
-                verificationKeyHash,
-                // +5 is industry standard (block explorers show this as 6 "confirmations")
-                1
-            )
-        returns (RiftExchange riftExchange) {
+        try new RiftExchange(
+            initialCheckpointHeight,
+            initialBlockHash,
+            initialRetargetBlockHash,
+            initialChainwork,
+            verifierContractAddress,
+            depositTokenAddress,
+            initialFeeRouterAddress,
+            msg.sender,
+            verificationKeyHash,
+            // +5 is industry standard (block explorers show this as 6 "confirmations")
+            1
+        ) returns (RiftExchange riftExchange) {
             console.log("RiftExchange deployed at:", address(riftExchange));
         } catch Error(string memory reason) {
             console.log("Failed to deploy RiftExchange:");
