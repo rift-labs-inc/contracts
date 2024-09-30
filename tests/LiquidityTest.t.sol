@@ -129,7 +129,7 @@ contract LiquidityDepositTest is ExchangeTestBase {
         uint64 newBtcExchangeRate = 75;
         console.log("Updating BTC exchange rate from", initialBtcExchangeRate, "to", newBtcExchangeRate);
         uint256[] memory empty = new uint256[](0);
-        riftExchange.updateExchangeRate(0, 0, newBtcExchangeRate, empty);
+        riftExchange.updateExchangeRate(0, newBtcExchangeRate, empty);
         console.log("NEW BTC EXCHANGE RATE:", riftExchange.getDepositVault(0).exchangeRate);
 
         // fetch the updated deposit and verify the new exchange rate
@@ -470,11 +470,11 @@ contract LiquidityDepositTest is ExchangeTestBase {
 
         // update the exchange rate
         uint256 globalVaultIndex = 0;
-        uint256 localVaultIndex = 0;
         uint64 newBtcExchangeRate = 55;
         uint256[] memory expiredReservationIndexes = new uint256[](0);
+
         riftExchange.updateExchangeRate(
-            globalVaultIndex, localVaultIndex, newBtcExchangeRate, expiredReservationIndexes
+            globalVaultIndex, newBtcExchangeRate, expiredReservationIndexes
         );
 
         // verify new exchange rate
@@ -483,7 +483,7 @@ contract LiquidityDepositTest is ExchangeTestBase {
 
         // Verify failure on zero exchange rate
         vm.expectRevert(INVALID_EXCHANGE_RATE);
-        riftExchange.updateExchangeRate(globalVaultIndex, localVaultIndex, 0, expiredReservationIndexes);
+        riftExchange.updateExchangeRate(globalVaultIndex, 0, expiredReservationIndexes);
 
         // Test vault forking due to active reservations
         uint256[] memory vaultIndexesToReserve = new uint256[](1);
@@ -500,7 +500,7 @@ contract LiquidityDepositTest is ExchangeTestBase {
             expiredReservationIndexes
         );
 
-        riftExchange.updateExchangeRate(globalVaultIndex, localVaultIndex, 60, expiredReservationIndexes);
+        riftExchange.updateExchangeRate(globalVaultIndex, 60, expiredReservationIndexes);
 
         // Verify that a new vault was created
         assertEq(riftExchange.getDepositVaultsLength(), 2, "A new vault should be created");

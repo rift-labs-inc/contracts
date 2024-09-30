@@ -10,6 +10,7 @@ error InvalidExchangeRate();
 error NotVaultOwner();
 error NotEnoughLiquidity();
 error WithdrawalAmountError();
+error UpdateExchangeRateError();
 error ReservationNotExpired();
 error ReservationNotProved();
 error StillInChallengePeriod();
@@ -34,11 +35,11 @@ interface IERC20 {
 contract RiftExchange is BlockHashStorage, Owned {
     // --------- TYPES --------- //
     enum ReservationState {
-        None,
-        Created,
-        Proved,
-        Completed,
-        Expired
+        None, // 0
+        Created, // 1
+        Proved, // 2
+        Completed, // 3
+        Expired // 4
     }
 
     struct SwapReservation {
@@ -90,7 +91,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     // --------- CONSTANTS --------- //
     uint256 constant SCALE = 1e18;
     uint256 constant BP_SCALE = 10000;
-    uint32 public constant RESERVATION_LOCKUP_PERIOD = 8 hours;
+    uint32 public constant RESERVATION_LOCKUP_PERIOD = 4 hours;
     uint32 public constant CHALLENGE_PERIOD = 5 minutes;
     IERC20 public immutable DEPOSIT_TOKEN;
     uint8 public immutable TOKEN_DECIMALS;
@@ -102,8 +103,8 @@ contract RiftExchange is BlockHashStorage, Owned {
     uint8 public protocolFeeBP = 10; // 10 bps = 0.1%
     address feeRouterAddress;
 
-    DepositVault[] depositVaults;
-    SwapReservation[] swapReservations;
+    DepositVault[] public depositVaults;
+    SwapReservation[] public swapReservations;
     mapping(address => LiquidityProvider) liquidityProviders;
 
     // --------- EVENTS --------- //
@@ -191,12 +192,11 @@ contract RiftExchange is BlockHashStorage, Owned {
 
     function updateExchangeRate(
         uint256 globalVaultIndex, // index of vault in depositVaults
-        uint256 localVaultIndex, // index of vault in LP's depositVaultIndexes array
         uint64 newExchangeRate,
         uint256[] memory expiredSwapReservationIndexes
     ) public {
         // [0] ensure msg.sender is vault owner
-        if (liquidityProviders[msg.sender].depositVaultIndexes[localVaultIndex] != globalVaultIndex) {
+        if (depositVaults[globalVaultIndex].owner != msg.sender) {
             revert NotVaultOwner();
         }
 
@@ -216,7 +216,11 @@ contract RiftExchange is BlockHashStorage, Owned {
         if (unreservedBalance == vault.initialBalance) {
             vault.exchangeRate = newExchangeRate;
         }
-        // [5] otherwise make a new fork deposit vault with the new exchange rate and unreserved balance
+        // [5] ensure there is some unreserved balance to create a new deposit vault
+        else if (unreservedBalance == 0) {
+            revert UpdateExchangeRateError();
+        }
+        // [6] otherwise make a new fork deposit vault with the new exchange rate and unreserved balance
         else {
             depositVaults.push(
                 DepositVault({
@@ -537,8 +541,9 @@ contract RiftExchange is BlockHashStorage, Owned {
     function verifyExpiredReservations(uint256[] memory expiredSwapReservationIndexes) internal view {
         for (uint256 i = 0; i < expiredSwapReservationIndexes.length; i++) {
             if (
-                block.timestamp - swapReservations[expiredSwapReservationIndexes[i]].reservationTimestamp
-                    < RESERVATION_LOCKUP_PERIOD
+                block.timestamp - swapReservations[expiredSwapReservationIndexes[i]].reservationTimestamp <
+                RESERVATION_LOCKUP_PERIOD ||
+                swapReservations[expiredSwapReservationIndexes[i]].state != ReservationState.Created
             ) {
                 revert ReservationNotExpired();
             }
