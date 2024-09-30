@@ -10,6 +10,7 @@ error InvalidExchangeRate();
 error NotVaultOwner();
 error NotEnoughLiquidity();
 error WithdrawalAmountError();
+error UpdateExchangeRateError();
 error ReservationNotExpired();
 error ReservationNotProved();
 error StillInChallengePeriod();
@@ -102,8 +103,8 @@ contract RiftExchange is BlockHashStorage, Owned {
     uint8 public protocolFeeBP = 10; // 10 bps = 0.1%
     address feeRouterAddress;
 
-    DepositVault[] depositVaults;
-    SwapReservation[] swapReservations;
+    DepositVault[] public depositVaults;
+    SwapReservation[] public swapReservations;
     mapping(address => LiquidityProvider) liquidityProviders;
 
     // --------- EVENTS --------- //
@@ -216,7 +217,11 @@ contract RiftExchange is BlockHashStorage, Owned {
         if (unreservedBalance == vault.initialBalance) {
             vault.exchangeRate = newExchangeRate;
         }
-        // [5] otherwise make a new fork deposit vault with the new exchange rate and unreserved balance
+        // [5] ensure there is some unreserved balance to create a new deposit vault
+        else if (unreservedBalance == 0) {
+            revert UpdateExchangeRateError();
+        }
+        // [6] otherwise make a new fork deposit vault with the new exchange rate and unreserved balance
         else {
             depositVaults.push(
                 DepositVault({
