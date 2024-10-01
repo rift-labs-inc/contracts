@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.2;
 
-import { Owned } from "solmate/auth/Owned.sol";
-import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
-import { BlockHashStorage } from "./BlockHashStorage.sol";
-import { console } from "forge-std/console.sol";
+import {Owned} from "solmate/auth/Owned.sol";
+import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
+import {BlockHashStorage} from "./BlockHashStorage.sol";
+import {console} from "forge-std/console.sol";
 
 error InvalidExchangeRate();
 error NotVaultOwner();
@@ -40,7 +40,6 @@ contract RiftExchange is BlockHashStorage, Owned {
         Proved, // 2
         Completed, // 3
         Expired // 4
-
     }
 
     struct SwapReservation {
@@ -155,10 +154,11 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     //--------- WRITE FUNCTIONS ---------//
-    function depositLiquidity(uint256 depositAmount, uint64 exchangeRate, bytes22 btcPayoutLockingScript)
-        public
-        newDepositsNotPaused
-    {
+    function depositLiquidity(
+        uint256 depositAmount,
+        uint64 exchangeRate,
+        bytes22 btcPayoutLockingScript
+    ) public newDepositsNotPaused {
         // [0] validate btc exchange rate
         if (exchangeRate == 0) {
             revert InvalidExchangeRate();
@@ -166,7 +166,7 @@ contract RiftExchange is BlockHashStorage, Owned {
 
         // [1] create new liquidity provider if it doesn't exist
         if (liquidityProviders[msg.sender].depositVaultIndexes.length == 0) {
-            liquidityProviders[msg.sender] = LiquidityProvider({ depositVaultIndexes: new uint256[](0) });
+            liquidityProviders[msg.sender] = LiquidityProvider({depositVaultIndexes: new uint256[](0)});
         }
 
         // [2] create new deposit vault
@@ -245,12 +245,11 @@ contract RiftExchange is BlockHashStorage, Owned {
 
     function withdrawLiquidity(
         uint256 globalVaultIndex, // index of vault in depositVaults
-        uint256 localVaultIndex, // index of vault in LP's depositVaultIndexes array
         uint192 amountToWithdraw,
         uint256[] memory expiredSwapReservationIndexes
     ) public {
         // [0] ensure msg.sender is vault owner
-        if (liquidityProviders[msg.sender].depositVaultIndexes[localVaultIndex] != globalVaultIndex) {
+        if (depositVaults[globalVaultIndex].owner != msg.sender) {
             revert NotVaultOwner();
         }
 
@@ -370,19 +369,20 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint256[] memory blockChainworks
     ) public view returns (ProofPublicInputs memory) {
         SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
-        return ProofPublicInputs({
-            natural_txid: bitcoinTxId,
-            merkle_root: merkleRoot,
-            lp_reservation_hash: swapReservation.lpReservationHash,
-            order_nonce: swapReservation.nonce,
-            lp_count: uint64(swapReservation.vaultIndexes.length),
-            retarget_block_hash: getBlockHash(calculateRetargetHeight(safeBlockHeight)),
-            safe_block_height: safeBlockHeight,
-            safe_block_height_delta: proposedBlockHeight - safeBlockHeight,
-            confirmation_block_height_delta: confirmationBlockHeight - proposedBlockHeight,
-            block_hashes: blockHashes,
-            block_chainworks: blockChainworks
-        });
+        return
+            ProofPublicInputs({
+                natural_txid: bitcoinTxId,
+                merkle_root: merkleRoot,
+                lp_reservation_hash: swapReservation.lpReservationHash,
+                order_nonce: swapReservation.nonce,
+                lp_count: uint64(swapReservation.vaultIndexes.length),
+                retarget_block_hash: getBlockHash(calculateRetargetHeight(safeBlockHeight)),
+                safe_block_height: safeBlockHeight,
+                safe_block_height_delta: proposedBlockHeight - safeBlockHeight,
+                confirmation_block_height_delta: confirmationBlockHeight - proposedBlockHeight,
+                block_hashes: blockHashes,
+                block_chainworks: blockChainworks
+            });
     }
 
     function submitSwapProof(
@@ -405,16 +405,18 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
 
         // [2] craft public inputs
-        bytes memory publicInputs = abi.encode(buildPublicInputs(
-            swapReservationIndex,
-            bitcoinTxId,
-            merkleRoot,
-            safeBlockHeight,
-            proposedBlockHeight,
-            confirmationBlockHeight,
-            blockHashes,
-            blockChainworks
-        ));
+        bytes memory publicInputs = abi.encode(
+            buildPublicInputs(
+                swapReservationIndex,
+                bitcoinTxId,
+                merkleRoot,
+                safeBlockHeight,
+                proposedBlockHeight,
+                confirmationBlockHeight,
+                blockHashes,
+                blockChainworks
+            )
+        );
 
         // [3] verify proof (will revert if invalid)
         VERIFIER_CONTRACT.verifyProof(CIRCUIT_VERIFICATION_KEY, publicInputs, proof);
@@ -543,9 +545,9 @@ contract RiftExchange is BlockHashStorage, Owned {
     function verifyExpiredReservations(uint256[] memory expiredSwapReservationIndexes) internal view {
         for (uint256 i = 0; i < expiredSwapReservationIndexes.length; i++) {
             if (
-                block.timestamp - swapReservations[expiredSwapReservationIndexes[i]].reservationTimestamp
-                    < RESERVATION_LOCKUP_PERIOD
-                    || swapReservations[expiredSwapReservationIndexes[i]].state != ReservationState.Created
+                block.timestamp - swapReservations[expiredSwapReservationIndexes[i]].reservationTimestamp <
+                RESERVATION_LOCKUP_PERIOD ||
+                swapReservations[expiredSwapReservationIndexes[i]].state != ReservationState.Created
             ) {
                 revert ReservationNotExpired();
             }
