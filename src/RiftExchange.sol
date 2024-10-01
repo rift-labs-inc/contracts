@@ -182,7 +182,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         );
 
         // [3] add deposit vault index to liquidity provider
-        liquidityProviders[msg.sender].depositVaultIndexes.push(depositVaults.length - 1);
+        addDepositVaultIndexToLP(msg.sender, depositVaults.length - 1);
 
         // [4] transfer deposit token to contract
         DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), depositAmount);
@@ -236,6 +236,9 @@ contract RiftExchange is BlockHashStorage, Owned {
 
             vault.withdrawnAmount += unreservedBalance;
             vault.unreservedBalance = 0;
+
+            // [7] add deposit vault index to liquidity provider
+            addDepositVaultIndexToLP(msg.sender, depositVaults.length - 1);
         }
     }
 
@@ -555,5 +558,9 @@ contract RiftExchange is BlockHashStorage, Owned {
             return amount * (10 ** (18 - tokenDecimals));
         }
         return amount;
+    }
+
+    function addDepositVaultIndexToLP(address lpAddress, uint256 vaultIndex) internal {
+        liquidityProviders[lpAddress].depositVaultIndexes.push(vaultIndex);
     }
 }
