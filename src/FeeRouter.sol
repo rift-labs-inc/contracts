@@ -1,8 +1,20 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.2;
 
-import { console } from "forge-std/console.sol";
-import { Owned } from "../lib/solmate/src/auth/Owned.sol";
+import {console} from "forge-std/console.sol";
+import {Owned} from "../lib/solmate/src/auth/Owned.sol";
+
+error InvalidPartitionLayout();
+error NotManager();
+error MismatchOwnersPercentages();
+error InsufficientManagers();
+error TotalPercentageInvalid();
+error NoAllowanceForTransfer();
+error TokenTransferFailed();
+error InvalidAddress();
+error ProposalAlreadyExecuted();
+error AlreadyApproved();
+error NotEnoughApprovals();
 
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
@@ -19,12 +31,11 @@ interface IERC20 {
 }
 
 contract FeeRouter is Owned {
-    IERC20 public depositToken;
+    IERC20 public immutable DEPOSIT_TOKEN;
 
     struct Partition {
         address owner;
-        uint256 percentage;
-        uint256 balance;
+        uint256 percentage; // in basis points
         bool isManager;
     }
 
@@ -39,11 +50,13 @@ contract FeeRouter is Owned {
     uint256 public totalReceived;
     uint256 constant BP_SCALE = 10000;
     uint256 public proposalCount;
+    uint256 public totalManagers;
     mapping(uint256 => Proposal) public proposals;
     mapping(address => address) public approvedReferredEthAddresses;
+    mapping(address => address) public approvedReferredBTCAddresses;
 
     modifier onlyManager() {
-        require(isManager(msg.sender), "Not a manager");
+        if (!isManager(msg.sender)) revert NotManager();
         _;
     }
 
@@ -51,142 +64,126 @@ contract FeeRouter is Owned {
         address _owner,
         address[] memory _partitionOwners,
         uint256[] memory _percentages,
-        bool[] memory _isManager
+        bool[] memory _isManager,
+        address _depositToken
     ) Owned(_owner) {
-        require(_partitionOwners.length == _percentages.length, "Mismatch in owners and percentages");
-        uint256 totalManagers = 0;
+        if (_partitionOwners.length != _percentages.length) revert MismatchOwnersPercentages();
         uint256 totalPercentage = 0;
         for (uint256 i = 0; i < _partitionOwners.length; i++) {
             totalPercentage += _percentages[i];
-            partitions.push(Partition(_partitionOwners[i], _percentages[i], 0, _isManager[i]));
+            partitions.push(Partition(_partitionOwners[i], _percentages[i], _isManager[i]));
             if (_isManager[i]) {
                 totalManagers += 1;
             }
         }
-        require(totalManagers >= 3, "need at least 3 managers to initiate multisig");
-        require(totalPercentage == BP_SCALE, "Total percentage must be 10000");
+        if (totalManagers < 3) revert InsufficientManagers();
+        if (totalPercentage != BP_SCALE) revert TotalPercentageInvalid();
+        DEPOSIT_TOKEN = IERC20(_depositToken);
     }
 
-    function receiveFees(address depositVaultOwnerAddress) public {
-        uint256 amount = depositToken.allowance(msg.sender, address(this));
-        require(amount > 0, "No allowance for token transfer");
-        require(depositToken.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
-        address referrer = address(0);
+    function receiveFees(address swapperEthAddress, address swapperBtcAddress) public {
+        uint256 amount = DEPOSIT_TOKEN.allowance(msg.sender, address(this));
+        if (amount == 0) revert NoAllowanceForTransfer();
+        if (!DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), amount)) revert TokenTransferFailed();
 
-        if (approvedReferredEthAddresses[depositVaultOwnerAddress] != address(0)) {
-            referrer = approvedReferredEthAddresses[depositVaultOwnerAddress];
+        uint256 remainingAmount = amount;
+
+        // handle referral fees
+        if (approvedReferredEthAddresses[swapperEthAddress] != address(0)) {
+            address ethReferrer = approvedReferredEthAddresses[swapperEthAddress];
+            uint256 ethReferralFee = amount / 2;
+            if (!DEPOSIT_TOKEN.transfer(ethReferrer, ethReferralFee)) revert TokenTransferFailed();
+            remainingAmount -= ethReferralFee;
         }
 
-        if (referrer != address(0)) {
-            uint256 referralFee = amount / 2;
-            (bool success,) = payable(referrer).call{ value: referralFee }("");
-            require(success, "Referral fee transfer failed");
-            amount -= referralFee;
+        if (approvedReferredBTCAddresses[swapperBtcAddress] != address(0)) {
+            address btcReferrer = approvedReferredBTCAddresses[swapperBtcAddress];
+            uint256 btcReferralFee = amount / 2;
+            if (!DEPOSIT_TOKEN.transfer(btcReferrer, btcReferralFee)) revert TokenTransferFailed();
+            remainingAmount -= btcReferralFee;
+        }
+
+        // divide remaining amount amongst partitions
+        for (uint256 i = 0; i < partitions.length; i++) {
+            uint256 partitionAmount = (remainingAmount * partitions[i].percentage) / BP_SCALE;
+            if (!DEPOSIT_TOKEN.transfer(partitions[i].owner, partitionAmount)) revert TokenTransferFailed();
         }
 
         totalReceived += amount;
-
-        uint256 remainingWei = amount;
-        for (uint256 i = 0; i < partitions.length - 1; i++) {
-            uint256 partitionAmount = (amount * partitions[i].percentage) / BP_SCALE;
-            partitions[i].balance += partitionAmount;
-            remainingWei -= partitionAmount;
-        }
-
-        // Allocate remaining wei to the last partition
-        partitions[partitions.length - 1].balance += remainingWei;
     }
 
-    function addApprovedReferrer(address ethAddress, address owner) external onlyManager {
-        require(ethAddress != address(0), "Invalid ETH address");
-        approvedReferredEthAddresses[ethAddress] = owner;
+    function addApprovedEthReferrer(address swapperEthAddress, address payoutEthAddress) external onlyManager {
+        if (swapperEthAddress == address(0) || payoutEthAddress == address(0)) revert InvalidAddress();
+        approvedReferredEthAddresses[swapperEthAddress] = payoutEthAddress;
     }
 
-    function removeApprovedReferrer(address ethAddress) external onlyManager {
-        require(ethAddress != address(0), "Invalid ETH address");
-        delete approvedReferredEthAddresses[ethAddress];
+    function removeApprovedEthReferrer(address swapperEthAddress) external onlyManager {
+        if (swapperEthAddress == address(0)) revert InvalidAddress();
+        delete approvedReferredEthAddresses[swapperEthAddress];
     }
 
-    function requestWithdrawal(uint256 partitionIndex) public {
-        require(partitionIndex < partitions.length, "Invalid partition index");
-        require(msg.sender == partitions[partitionIndex].owner, "Not the partition owner");
-        require(partitions[partitionIndex].balance > 0, "No balance to withdraw");
-
-        uint256 amount = partitions[partitionIndex].balance;
-        partitions[partitionIndex].balance = 0;
-
-        (bool success,) = payable(msg.sender).call{ value: amount }("");
-        require(depositToken.transfer(msg.sender, amount), "Token transfer failed");
-
-        require(success, "Transfer failed");
+    function addApprovedBtcReferrer(address swapperBtcAddress, address payoutEthAddress) external onlyManager {
+        if (swapperBtcAddress == address(0) || payoutEthAddress == address(0)) revert InvalidAddress();
+        approvedReferredBTCAddresses[swapperBtcAddress] = payoutEthAddress;
     }
 
-    function getPartitionBalance(uint256 partitionIndex) public view returns (uint256) {
-        require(partitionIndex < partitions.length, "Invalid partition index");
-        return partitions[partitionIndex].balance;
-    }
-
-    function getContractBalance() public view returns (uint256) {
-        return address(this).balance;
+    function removeApprovedBtcReferrer(address swapperBtcAddress) external onlyManager {
+        if (swapperBtcAddress == address(0)) revert InvalidAddress();
+        delete approvedReferredBTCAddresses[swapperBtcAddress];
     }
 
     function proposeNewPartitionLayout(Partition[] memory _newPartitions) public onlyManager {
-        require(validateNewPartitions(_newPartitions), "Invalid new partition layout");
+        if (!validateNewPartitions(_newPartitions)) revert InvalidPartitionLayout();
 
         proposalCount++;
         Proposal storage newProposal = proposals[proposalCount];
-        uint256 totalManagers = 0;
+        uint256 newTotalManagers = 0;
 
         for (uint256 i = 0; i < _newPartitions.length; i++) {
             if (_newPartitions[i].isManager) {
-                totalManagers += 1;
+                newTotalManagers += 1;
             }
             newProposal.newPartitions.push(_newPartitions[i]);
         }
-        require(totalManagers >= 3, "need at least 3 managers to initiate multisig");
+        if (newTotalManagers < 3) revert InsufficientManagers();
 
         newProposal.approvalCount = 1;
         newProposal.hasApproved[msg.sender] = true;
+
+        if (newProposal.approvalCount == totalManagers) {
+            executeProposal(proposalCount);
+        }
     }
 
     function approveProposal(uint256 _proposalId) public onlyManager {
         Proposal storage proposal = proposals[_proposalId];
-        require(!proposal.executed, "Proposal already executed");
-        require(!proposal.hasApproved[msg.sender], "Already approved");
+        if (proposal.executed) revert ProposalAlreadyExecuted();
+        if (proposal.hasApproved[msg.sender]) revert AlreadyApproved();
 
         proposal.approvalCount++;
         proposal.hasApproved[msg.sender] = true;
 
-        if (proposal.approvalCount >= 2) {
+        if (proposal.approvalCount == totalManagers) {
             executeProposal(_proposalId);
         }
     }
 
     function executeProposal(uint256 _proposalId) internal {
         Proposal storage proposal = proposals[_proposalId];
-        require(!proposal.executed, "Proposal already executed");
-        require(proposal.approvalCount >= 2, "Not enough approvals");
+        if (proposal.executed) revert ProposalAlreadyExecuted();
+        if (proposal.approvalCount < totalManagers) revert NotEnoughApprovals();
 
-        // Withdraw all current partition balances
-        withdrawAllPartitions();
-
-        // Implement new partition layout
         delete partitions;
+        uint256 newTotalManagers = 0;
         for (uint256 i = 0; i < proposal.newPartitions.length; i++) {
             partitions.push(proposal.newPartitions[i]);
-        }
-
-        proposal.executed = true;
-    }
-
-    function withdrawAllPartitions() internal {
-        for (uint256 i = 0; i < partitions.length; i++) {
-            if (partitions[i].balance > 0) {
-                uint256 amount = partitions[i].balance;
-                partitions[i].balance = 0;
-                require(depositToken.transfer(partitions[i].owner, amount), "Token transfer failed");
+            if (proposal.newPartitions[i].isManager) {
+                newTotalManagers++;
             }
         }
+        totalManagers = newTotalManagers;
+
+        proposal.executed = true;
     }
 
     function isManager(address _address) internal view returns (bool) {
@@ -207,6 +204,6 @@ contract FeeRouter is Owned {
                 managerCount++;
             }
         }
-        return totalPercentage == BP_SCALE;
+        return totalPercentage == BP_SCALE && managerCount >= 3;
     }
 }
