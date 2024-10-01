@@ -473,9 +473,7 @@ contract LiquidityDepositTest is ExchangeTestBase {
         uint64 newBtcExchangeRate = 55;
         uint256[] memory expiredReservationIndexes = new uint256[](0);
 
-        riftExchange.updateExchangeRate(
-            globalVaultIndex, newBtcExchangeRate, expiredReservationIndexes
-        );
+        riftExchange.updateExchangeRate(globalVaultIndex, newBtcExchangeRate, expiredReservationIndexes);
 
         // verify new exchange rate
         RiftExchange.DepositVault memory updatedVault = riftExchange.getDepositVault(globalVaultIndex);

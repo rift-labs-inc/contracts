@@ -40,6 +40,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         Proved, // 2
         Completed, // 3
         Expired // 4
+
     }
 
     struct SwapReservation {
@@ -367,23 +368,21 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint64 confirmationBlockHeight,
         bytes32[] memory blockHashes,
         uint256[] memory blockChainworks
-    ) public view returns (bytes memory) {
+    ) public view returns (ProofPublicInputs memory) {
         SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
-        return abi.encode(
-            ProofPublicInputs({
-                natural_txid: bitcoinTxId,
-                merkle_root: merkleRoot,
-                lp_reservation_hash: swapReservation.lpReservationHash,
-                order_nonce: swapReservation.nonce,
-                lp_count: uint64(swapReservation.vaultIndexes.length),
-                retarget_block_hash: getBlockHash(calculateRetargetHeight(safeBlockHeight)),
-                safe_block_height: safeBlockHeight,
-                safe_block_height_delta: proposedBlockHeight - safeBlockHeight,
-                confirmation_block_height_delta: confirmationBlockHeight - proposedBlockHeight,
-                block_hashes: blockHashes,
-                block_chainworks: blockChainworks
-            })
-        );
+        return ProofPublicInputs({
+            natural_txid: bitcoinTxId,
+            merkle_root: merkleRoot,
+            lp_reservation_hash: swapReservation.lpReservationHash,
+            order_nonce: swapReservation.nonce,
+            lp_count: uint64(swapReservation.vaultIndexes.length),
+            retarget_block_hash: getBlockHash(calculateRetargetHeight(safeBlockHeight)),
+            safe_block_height: safeBlockHeight,
+            safe_block_height_delta: proposedBlockHeight - safeBlockHeight,
+            confirmation_block_height_delta: confirmationBlockHeight - proposedBlockHeight,
+            block_hashes: blockHashes,
+            block_chainworks: blockChainworks
+        });
     }
 
     function submitSwapProof(
@@ -406,7 +405,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
 
         // [2] craft public inputs
-        bytes memory publicInputs = buildPublicInputs(
+        bytes memory publicInputs = abi.encode(buildPublicInputs(
             swapReservationIndex,
             bitcoinTxId,
             merkleRoot,
@@ -415,10 +414,10 @@ contract RiftExchange is BlockHashStorage, Owned {
             confirmationBlockHeight,
             blockHashes,
             blockChainworks
-        );
+        ));
 
         // [3] verify proof (will revert if invalid)
-         VERIFIER_CONTRACT.verifyProof(CIRCUIT_VERIFICATION_KEY, publicInputs, proof);
+        VERIFIER_CONTRACT.verifyProof(CIRCUIT_VERIFICATION_KEY, publicInputs, proof);
 
         // [4] add verified block to block hash storage contract
         addBlock( // TODO: audit
@@ -544,9 +543,9 @@ contract RiftExchange is BlockHashStorage, Owned {
     function verifyExpiredReservations(uint256[] memory expiredSwapReservationIndexes) internal view {
         for (uint256 i = 0; i < expiredSwapReservationIndexes.length; i++) {
             if (
-                block.timestamp - swapReservations[expiredSwapReservationIndexes[i]].reservationTimestamp <
-                RESERVATION_LOCKUP_PERIOD ||
-                swapReservations[expiredSwapReservationIndexes[i]].state != ReservationState.Created
+                block.timestamp - swapReservations[expiredSwapReservationIndexes[i]].reservationTimestamp
+                    < RESERVATION_LOCKUP_PERIOD
+                    || swapReservations[expiredSwapReservationIndexes[i]].state != ReservationState.Created
             ) {
                 revert ReservationNotExpired();
             }
