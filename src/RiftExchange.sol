@@ -86,6 +86,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint64 confirmation_block_height_delta;
         bytes32[] block_hashes;
         uint256[] block_chainworks;
+        bool is_transaction_proof;
     }
 
     // --------- CONSTANTS --------- //
@@ -366,7 +367,8 @@ contract RiftExchange is BlockHashStorage, Owned {
         uint64 proposedBlockHeight,
         uint64 confirmationBlockHeight,
         bytes32[] memory blockHashes,
-        uint256[] memory blockChainworks
+        uint256[] memory blockChainworks,
+        bool isTransactionProof
     ) public view returns (ProofPublicInputs memory) {
         SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
         return
@@ -381,7 +383,8 @@ contract RiftExchange is BlockHashStorage, Owned {
                 safe_block_height_delta: proposedBlockHeight - safeBlockHeight,
                 confirmation_block_height_delta: confirmationBlockHeight - proposedBlockHeight,
                 block_hashes: blockHashes,
-                block_chainworks: blockChainworks
+                block_chainworks: blockChainworks,
+                is_transaction_proof: isTransactionProof
             });
     }
 
@@ -414,7 +417,8 @@ contract RiftExchange is BlockHashStorage, Owned {
                 proposedBlockHeight,
                 confirmationBlockHeight,
                 blockHashes,
-                blockChainworks
+                blockChainworks,
+                true
             )
         );
 
@@ -422,14 +426,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         VERIFIER_CONTRACT.verifyProof(CIRCUIT_VERIFICATION_KEY, publicInputs, proof);
 
         // [4] add verified block to block hash storage contract
-        addBlock( // TODO: audit
-            safeBlockHeight,
-            proposedBlockHeight,
-            confirmationBlockHeight,
-            blockHashes,
-            blockChainworks,
-            proposedBlockHeight - safeBlockHeight
-        );
+        addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, blockChainworks); // TODO: audit
 
         // [5] update swap reservation
         swapReservation.state = ReservationState.Proved;
@@ -474,6 +471,36 @@ contract RiftExchange is BlockHashStorage, Owned {
         DEPOSIT_TOKEN.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapOutputAmount - protocolFee);
 
         emit SwapComplete(swapReservationIndex, swapReservation.nonce);
+    }
+
+    function proveBlocks(
+        uint32 safeBlockHeight,
+        uint64 proposedBlockHeight,
+        uint64 confirmationBlockHeight,
+        bytes32[] memory blockHashes,
+        uint256[] memory blockChainworks,
+        bytes calldata proof
+    ) external {
+        // [0] craft public inputs
+        bytes memory publicInputs = abi.encode(
+            buildPublicInputs(
+                0,
+                bytes32(0),
+                bytes32(0),
+                safeBlockHeight,
+                proposedBlockHeight,
+                confirmationBlockHeight,
+                blockHashes,
+                blockChainworks,
+                false
+            )
+        );
+
+        // [1] verify proof (will revert if invalid)
+        VERIFIER_CONTRACT.verifyProof(CIRCUIT_VERIFICATION_KEY, publicInputs, proof);
+
+        // [2] add verified blocks to block hash storage contract
+        addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, blockChainworks);
     }
 
     // --------- ONLY OWNER --------- //

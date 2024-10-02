@@ -4,15 +4,17 @@ pragma solidity ^0.8.0;
 import "forge-std/console.sol";
 
 error InvalidSafeBlock();
+error InvalidBlockHeights();
 error BlockDoesNotExist();
 error InvalidConfirmationBlock();
 error InvalidProposedBlockOverwrite();
+error BlockArraysMismatch();
+error InvalidChainwork();
 
 contract BlockHashStorage {
     mapping(uint256 => bytes32) blockchain; // block height => block hash
     mapping(uint256 => uint256) chainworks; // block height => chainwork
     uint256 public currentHeight;
-    uint256 public currentConfirmationHeight;
     uint8 immutable minimumConfirmationDelta;
 
     event BlocksAdded(uint256 startBlockHeight, uint256 count);
@@ -37,70 +39,60 @@ contract BlockHashStorage {
         uint256 proposedBlockHeight,
         uint256 confirmationBlockHeight,
         bytes32[] memory blockHashes, // from safe block to confirmation block
-        uint256[] memory blockChainworks,
-        uint256 proposedBlockIndex // in blockHashes array
+        uint256[] memory blockChainworks
     ) internal {
-        uint256 _tipBlockHeight = currentHeight;
-        uint256 _tipChainwork = chainworks[currentHeight];
+        uint256 tipBlockHeight = currentHeight;
+        uint256 tipChainwork = chainworks[currentHeight];
+        uint256 confirmationBlockIndex = confirmationBlockHeight - safeBlockHeight;
+        uint256 proposedBlockIndex = proposedBlockHeight - safeBlockHeight;
 
-        // [0] ensure confirmation block matches block in blockchain (if < minimumConfirmationDelta away from proposed block)
-        if (confirmationBlockHeight - proposedBlockHeight < minimumConfirmationDelta) {
-            if (blockHashes[blockHashes.length - 1] != blockchain[confirmationBlockHeight]) {
-                revert InvalidConfirmationBlock();
-            }
+        // [0] ensure arrays are same length && matches delta between confirmationBlockHeight-safeBlockHeight (+/-1?)
+        if (
+            blockHashes.length != blockChainworks.length ||
+            blockHashes.length != confirmationBlockHeight - safeBlockHeight
+        ) {
+            revert BlockArraysMismatch();
         }
 
-        // [1] validate safeBlock height
-        if (safeBlockHeight > _tipBlockHeight) {
+        // [1] ensure safe < proposed < confirmation
+        if (safeBlockHeight >= proposedBlockHeight || proposedBlockHeight >= confirmationBlockHeight) {
+            revert InvalidBlockHeights();
+        }
+
+        // [2] ensure confirmationBlockHeight - proposedBlockHeight is >= minimumConfirmationDelta
+        if (confirmationBlockHeight - proposedBlockHeight < minimumConfirmationDelta) {
+            revert InvalidConfirmationBlock();
+        }
+
+        // [3] ensure safeBlockHeight exists in the contract ( ≠ bytes32(0) )
+        if (blockchain[safeBlockHeight] == bytes32(0)) {
             revert InvalidSafeBlock();
         }
 
-        // [2] return if block already exists
+        // [4] return if prposed block already exists and matches
         if (blockchain[proposedBlockHeight] == blockHashes[proposedBlockIndex]) {
             return;
         }
-        // [3] ensure proposed block is not being overwritten unless longer chain (higher confirmation chainwork)
-        else if (
-            blockchain[proposedBlockHeight] != bytes32(0)
-                && _tipChainwork >= blockChainworks[blockChainworks.length - 1]
-        ) {
-            revert InvalidProposedBlockOverwrite();
-        }
 
-        // [4] ADDITION/OVERWRITE (proposed block > tip block)
-        if (proposedBlockHeight > _tipBlockHeight) {
-            // [a] ADDITION - (safe block === tip block)
-            if (safeBlockHeight == _tipBlockHeight) {
-                blockchain[proposedBlockHeight] = blockHashes[proposedBlockIndex];
-                chainworks[proposedBlockHeight] = blockChainworks[proposedBlockIndex];
+        // [5] handle block addition/overwrites if you have longer chainwork than tip
+        if (blockChainworks[confirmationBlockIndex] > tipChainwork) {
+            // [0] fill in all blocks/chainwork from safeBlockHeight + 1 to confirmationBlockHeight
+            for (uint256 i = safeBlockHeight + 1; i <= confirmationBlockHeight; i++) {
+                blockchain[i] = blockHashes[i - safeBlockHeight];
+                chainworks[i] = blockChainworks[i - safeBlockHeight];
             }
-            // [b] OVERWRITE - new longest chain (safe block < tip block < proposed block)
-            else if (safeBlockHeight < _tipBlockHeight) {
-                for (uint256 i = safeBlockHeight; i <= proposedBlockHeight; i++) {
-                    blockchain[i] = blockHashes[i - safeBlockHeight];
-                    chainworks[i] = blockChainworks[i - safeBlockHeight];
+
+            // [1] clear out everything past you confirmation block if you have longer chainwork than tip
+            if (confirmationBlockHeight < tipBlockHeight) {
+                for (uint256 i = confirmationBlockHeight + 1; i <= tipBlockHeight; i++) {
+                    blockchain[i] = bytes32(0);
+                    chainworks[i] = uint256(0);
                 }
             }
         }
-        // [5] INSERTION - (safe block < proposed block < tip block)
-        else if (proposedBlockHeight < _tipBlockHeight) {
-            blockchain[proposedBlockHeight] = blockHashes[proposedBlockIndex];
-            chainworks[proposedBlockHeight] = blockChainworks[proposedBlockIndex];
-        }
-
-        // [6] update current height
-        if (proposedBlockHeight > currentHeight) {
-            currentHeight = proposedBlockHeight;
-        }
-
-        // [7] calculate what the new retarget block height should be, if it changed
-        uint256 safeRetargetHeight = calculateRetargetHeight(proposedBlockHeight);
-        uint256 tipRetargetHeight = calculateRetargetHeight(confirmationBlockHeight);
-        if (tipRetargetHeight != safeRetargetHeight) {
-            // [8] inject the retarget block hash
-            uint256 retargetHeightIndex = confirmationBlockHeight - tipRetargetHeight;
-            blockchain[tipRetargetHeight] = blockHashes[retargetHeightIndex];
-            chainworks[tipRetargetHeight] = blockChainworks[retargetHeightIndex];
+        // [6] revert if confirmation block chainwork is less than tip chainwork
+        else {
+            revert InvalidChainwork();
         }
 
         emit BlocksAdded(safeBlockHeight, blockHashes.length);

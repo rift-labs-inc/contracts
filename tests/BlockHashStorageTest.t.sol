@@ -1,10 +1,10 @@
 // // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
-import { console } from "forge-std/console.sol";
-import { BlockHashStorage } from "../src/BlockHashStorage.sol";
-import { TestBlocks } from "./TestBlocks.sol";
+import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
+import {BlockHashStorage} from "../src/BlockHashStorage.sol";
+import {TestBlocks} from "./TestBlocks.sol";
 
 // exposes the internal block hash storage functions for testing
 contract BlockHashProxy is BlockHashStorage {
@@ -22,24 +22,16 @@ contract BlockHashProxy is BlockHashStorage {
             initialRetargetBlockHash,
             minimumConfirmationDelta
         )
-    { }
+    {}
 
     function AddBlock(
         uint256 safeBlockHeight,
         uint256 proposedBlockHeight,
         uint256 confirmationBlockHeight,
         bytes32[] memory blockHashes,
-        uint256[] memory blockChainworks,
-        uint256 proposedBlockIndex
+        uint256[] memory blockChainworks
     ) public {
-        addBlock(
-            safeBlockHeight,
-            proposedBlockHeight,
-            confirmationBlockHeight,
-            blockHashes,
-            blockChainworks,
-            proposedBlockIndex
-        );
+        addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, blockChainworks);
     }
 }
 
@@ -54,8 +46,13 @@ contract BlockHashStorageTest is Test, TestBlocks {
 
     function setUp() public {
         initialCheckpointHeight = blockHeights[0];
-        blockHashProxy =
-            new BlockHashProxy(initialCheckpointHeight, blockChainworks[0], blockHashes[0], retargetBlockHash, 5);
+        blockHashProxy = new BlockHashProxy(
+            initialCheckpointHeight,
+            blockChainworks[0],
+            blockHashes[0],
+            retargetBlockHash,
+            5
+        );
     }
 
     function inspectBlockchain(uint256 depth) public view {
@@ -100,28 +97,29 @@ contract BlockHashStorageTest is Test, TestBlocks {
     function testSimpleAddBlocks() public {
         bytes32[] memory blocks = fetchBlockSubset(0, 5);
         uint256[] memory chainworks = fetchChainworkSubset(0, 5);
-        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks, 1);
+        console.log("ALPINE", blockHeights[0]);
+        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks);
     }
 
     function testAddBlockFailsOnInvalidSafeBlock() public {
         bytes32[] memory blocks = fetchBlockSubset(0, 5);
         uint256[] memory chainworks = fetchChainworkSubset(0, 5);
         vm.expectRevert(INVALID_SAFE_BLOCK);
-        blockHashProxy.AddBlock(blockHeights[1], blockHeights[1], blockHeights[6], blocks, chainworks, 1);
+        blockHashProxy.AddBlock(blockHeights[1], blockHeights[1], blockHeights[6], blocks, chainworks);
     }
 
     function testAddBlocksFailsOnInvalidConfirmationBlock() public {
         bytes32[] memory blocks = fetchBlockSubset(0, 5);
         uint256[] memory chainworks = fetchChainworkSubset(0, 5);
         vm.expectRevert(INVALID_CONFIRMATION_BLOCK);
-        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[5], blocks, chainworks, 1);
+        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[5], blocks, chainworks);
     }
 
     function testAddBlockDoesNothingWhenProposedBlockExists() public {
         bytes32[] memory blocks = fetchBlockSubset(0, 5);
         uint256[] memory chainworks = fetchChainworkSubset(0, 5);
-        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks, 1);
-        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks, 1);
+        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks);
+        blockHashProxy.AddBlock(blockHeights[0], blockHeights[1], blockHeights[6], blocks, chainworks);
     }
 
     function testAddsRetargetBlockWhenRetargetBlockChangesMidAdd() public {
@@ -131,7 +129,7 @@ contract BlockHashStorageTest is Test, TestBlocks {
         uint256 safe_height = 861295;
         uint256 proposed_height = 862848;
         uint256 confirmation_height = 862858;
-        blockHashProxy.AddBlock(safe_height, proposed_height, confirmation_height, blocks, chainworks, 1552);
+        blockHashProxy.AddBlock(safe_height, proposed_height, confirmation_height, blocks, chainworks);
         console.log("retarget block new theo");
         console.logBytes32(blockHashProxy.getBlockHash(862848));
         console.log("retarget block new theo -1");
@@ -147,9 +145,7 @@ contract BlockHashStorageTest is Test, TestBlocks {
         uint256 safe_height = 861295;
         uint256 proposed_height = 862843;
         uint256 confirmation_height = 862849;
-        blockHashProxy.AddBlock(
-            safe_height, proposed_height, confirmation_height, blocks, chainworks, proposed_height - safe_height
-        );
+        blockHashProxy.AddBlock(safe_height, proposed_height, confirmation_height, blocks, chainworks);
         console.log("retarget block new theo");
         console.logBytes32(blockHashProxy.getBlockHash(862848));
         console.log("retarget block new theo -1");
