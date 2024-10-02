@@ -29,6 +29,8 @@ interface IERC20 {
 
     function allowance(address owner, address spender) external view returns (uint256);
 
+    function approve(address spender, uint256 amount) external returns (bool);
+
     function decimals() external view returns (uint8);
 }
 
@@ -90,8 +92,8 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     // --------- CONSTANTS --------- //
-    uint256 constant SCALE = 1e18;
-    uint256 constant BP_SCALE = 10000;
+    uint256 public constant SCALE = 1e18;
+    uint256 public constant BP_SCALE = 10000;
     uint32 public constant RESERVATION_LOCKUP_PERIOD = 4 hours;
     uint32 public constant CHALLENGE_PERIOD = 5 minutes;
     IERC20 public immutable DEPOSIT_TOKEN;
