@@ -42,11 +42,13 @@ contract ExchangeTestBase is Test, TestBlocks {
         bytes32 initialRetargetBlockHash = retargetBlockHash;
         uint256 initialCheckpointHeight = blockHeights[0];
         address verifierContractAddress = address(new MockVerifier());
-        uint8 minimumConfirmationDelta = 5;
 
         usdt = new MockUSDT();
 
         address payable initialFeeRouterAddress = payable(address(0xdeadbeef));
+
+        address[] memory initialPermissionedHypernodes = new address[](1);
+        initialPermissionedHypernodes[0] = hypernode1;
 
         riftExchange = new RiftExchange(
             initialCheckpointHeight,
@@ -58,7 +60,7 @@ contract ExchangeTestBase is Test, TestBlocks {
             initialFeeRouterAddress,
             address(this),
             hex"deadbeef",
-            minimumConfirmationDelta
+            initialPermissionedHypernodes
         );
 
         riftExchange.addPermissionedHypernode(hypernode1);

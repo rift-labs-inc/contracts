@@ -24,6 +24,7 @@ include_storage = true
 include_push_bytes = true
 
 [profile.default]
+solc = "0.8.27"
 env = { PRIVATE_KEY = "${PRIVATE_KEY}" }
 src = "src"
 test = "tests"

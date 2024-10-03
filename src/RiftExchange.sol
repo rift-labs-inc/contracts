@@ -97,6 +97,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     uint256 public constant BP_SCALE = 10000;
     uint32 public constant RESERVATION_LOCKUP_PERIOD = 4 hours;
     uint32 public constant CHALLENGE_PERIOD = 5 minutes;
+    uint8 public constant MINIMUM_CONFIRMATION_DELTA = 1;
     IERC20 public immutable DEPOSIT_TOKEN;
     uint8 public immutable TOKEN_DECIMALS;
     bytes32 public immutable CIRCUIT_VERIFICATION_KEY;
@@ -146,7 +147,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         address initialFeeRouterAddress,
         address owner,
         bytes32 circuitVerificationKey,
-        uint8 minimumConfirmationDelta
+        address[] memory initialPermissionedHypernodes
     )
         BlockHashStorage(
             initialCheckpointHeight,
@@ -165,6 +166,11 @@ contract RiftExchange is BlockHashStorage, Owned {
 
         // [1] set fee router address
         feeRouterAddress = initialFeeRouterAddress;
+
+        // [2] set initial permissioned hypernodes
+        for (uint256 i = 0; i < initialPermissionedHypernodes.length; i++) {
+            permissionedHypernodes[initialPermissionedHypernodes[i]] = true;
+        }
     }
 
     //--------- WRITE FUNCTIONS ---------//
