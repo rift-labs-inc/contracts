@@ -55,10 +55,13 @@ contract FeeRouter is Owned {
     mapping(address => address) public approvedReferredEthAddresses;
     mapping(address => address) public approvedReferredBTCAddresses;
 
+    // ----------- MODIFIERS ----------- //
     modifier onlyManager() {
         if (!isManager(msg.sender)) revert NotManager();
         _;
     }
+
+    // ----------- CONSTRUCTOR ----------- //
 
     constructor(
         address _owner,
@@ -76,19 +79,22 @@ contract FeeRouter is Owned {
                 totalManagers += 1;
             }
         }
-        if (totalManagers < 3) revert InsufficientManagers();
+        if (totalManagers < 1) revert InsufficientManagers();
         if (totalPercentage != BP_SCALE) revert TotalPercentageInvalid();
         DEPOSIT_TOKEN = IERC20(_depositToken);
     }
 
+    // ----------- MAIN FUNCTION ----------- //
+
     function receiveFees(address swapperEthAddress, address swapperBtcAddress) public {
+        // [0] transfer tokens to contract
         uint256 amount = DEPOSIT_TOKEN.allowance(msg.sender, address(this));
         if (amount == 0) revert NoAllowanceForTransfer();
         if (!DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), amount)) revert TokenTransferFailed();
 
         uint256 remainingAmount = amount;
 
-        // handle referral fees
+        // [1] handle referral fees (ETH swapper)
         if (approvedReferredEthAddresses[swapperEthAddress] != address(0)) {
             address ethReferrer = approvedReferredEthAddresses[swapperEthAddress];
             uint256 ethReferralFee = amount / 2;
@@ -96,6 +102,7 @@ contract FeeRouter is Owned {
             remainingAmount -= ethReferralFee;
         }
 
+        // [2] handle referral fees (BTC swapper)
         if (approvedReferredBTCAddresses[swapperBtcAddress] != address(0)) {
             address btcReferrer = approvedReferredBTCAddresses[swapperBtcAddress];
             uint256 btcReferralFee = amount / 2;
@@ -103,18 +110,35 @@ contract FeeRouter is Owned {
             remainingAmount -= btcReferralFee;
         }
 
-        // divide remaining amount amongst partitions
+        // [3] divide remaining amount amongst partitions
+        uint256 totalDistributed = 0;
         for (uint256 i = 0; i < partitions.length; i++) {
             uint256 partitionAmount = (remainingAmount * partitions[i].percentage) / BP_SCALE;
+            totalDistributed += partitionAmount;
             if (!DEPOSIT_TOKEN.transfer(partitions[i].owner, partitionAmount)) revert TokenTransferFailed();
+        }
+
+        // [4] handle leftover tokens
+        uint256 leftover = remainingAmount - totalDistributed;
+        if (leftover > 0) {
+            // allocate leftover to the last partition owner
+            address lastPartitionOwner = partitions[partitions.length - 1].owner;
+            if (!DEPOSIT_TOKEN.transfer(lastPartitionOwner, leftover)) revert TokenTransferFailed();
         }
 
         totalReceived += amount;
     }
 
+    // ----------- MANAGER FUNCTIONS ----------- //
+
     function addApprovedEthReferrer(address swapperEthAddress, address payoutEthAddress) external onlyManager {
         if (swapperEthAddress == address(0) || payoutEthAddress == address(0)) revert InvalidAddress();
         approvedReferredEthAddresses[swapperEthAddress] = payoutEthAddress;
+    }
+
+    function removeApprovedBtcReferrer(address swapperBtcAddress) external onlyManager {
+        if (swapperBtcAddress == address(0)) revert InvalidAddress();
+        delete approvedReferredBTCAddresses[swapperBtcAddress];
     }
 
     function removeApprovedEthReferrer(address swapperEthAddress) external onlyManager {
@@ -125,11 +149,6 @@ contract FeeRouter is Owned {
     function addApprovedBtcReferrer(address swapperBtcAddress, address payoutEthAddress) external onlyManager {
         if (swapperBtcAddress == address(0) || payoutEthAddress == address(0)) revert InvalidAddress();
         approvedReferredBTCAddresses[swapperBtcAddress] = payoutEthAddress;
-    }
-
-    function removeApprovedBtcReferrer(address swapperBtcAddress) external onlyManager {
-        if (swapperBtcAddress == address(0)) revert InvalidAddress();
-        delete approvedReferredBTCAddresses[swapperBtcAddress];
     }
 
     function proposeNewPartitionLayout(Partition[] memory _newPartitions) public onlyManager {
@@ -145,7 +164,7 @@ contract FeeRouter is Owned {
             }
             newProposal.newPartitions.push(_newPartitions[i]);
         }
-        if (newTotalManagers < 3) revert InsufficientManagers();
+        if (newTotalManagers < 1) revert InsufficientManagers();
 
         newProposal.approvalCount = 1;
         newProposal.hasApproved[msg.sender] = true;
@@ -167,6 +186,8 @@ contract FeeRouter is Owned {
             executeProposal(_proposalId);
         }
     }
+
+    // ----------- INTERNAL FUNCTIONS ----------- //
 
     function executeProposal(uint256 _proposalId) internal {
         Proposal storage proposal = proposals[_proposalId];
@@ -204,6 +225,6 @@ contract FeeRouter is Owned {
                 managerCount++;
             }
         }
-        return totalPercentage == BP_SCALE && managerCount >= 3;
+        return totalPercentage == BP_SCALE && managerCount >= 1;
     }
 }
