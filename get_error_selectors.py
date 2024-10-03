@@ -39,7 +39,20 @@ error_signatures = [
     "ReservationNotExpired()",
     "InvalidUpdateWithActiveReservations()",
     "StillInChallengePeriod()",
-    "ReservationNotUnlocked()"
+    "ReservationNotUnlocked()",
+    "InvalidExchangeRate()",
+    "NotVaultOwner()",
+    "NotEnoughLiquidity()",
+    "WithdrawalAmountError()",
+    "UpdateExchangeRateError()",
+    "ReservationNotExpired()",
+    "ReservationNotProved()",
+    "StillInChallengePeriod()",
+    "OverwrittenProposedBlock()",
+    "NewDepositsPaused()",
+    "InvalidInputArrays()",
+    "InvalidReservationState()",
+    "AmountToReserveTooLow(uint256 index)"
 ]
 
 def get_error_selector(error_signature):
