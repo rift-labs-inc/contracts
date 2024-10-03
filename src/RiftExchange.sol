@@ -113,8 +113,16 @@ contract RiftExchange is BlockHashStorage, Owned {
     // --------- EVENTS --------- //
     event LiquidityDeposited(address indexed depositor, uint256 depositVaultIndex, uint256 amount, uint64 exchangeRate);
     event LiquidityReserved(address indexed reserver, uint256 swapReservationIndex, bytes32 orderNonce);
-    event SwapComplete(uint256 swapReservationIndex, bytes32 orderNonce);
+    event SwapComplete(
+        uint256 swapReservationIndex,
+        bytes32 orderNonce,
+        address ethPayoutAddress,
+        uint256 totalSwapOutputAmount,
+        uint256 protocolFee
+    );
     event ProofSubmitted(address indexed prover, uint256 swapReservationIndex, bytes32 orderNonce);
+    event ExchangeRateUpdated(uint256 indexed globalVaultIndex, uint64 newExchangeRate, uint256 unreservedBalance);
+    event LiquidityWithdrawn(uint256 indexed globalVaultIndex, uint192 amountWithdrawn, uint256 remainingBalance);
 
     // --------- MODIFIERS --------- //
     modifier newDepositsNotPaused() {
@@ -219,6 +227,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         // [4] if the entire vault is unreserved, update the exchange rate
         if (unreservedBalance == vault.initialBalance) {
             vault.exchangeRate = newExchangeRate;
+            emit ExchangeRateUpdated(globalVaultIndex, newExchangeRate, unreservedBalance);
         }
         // [5] ensure there is some unreserved balance to create a new deposit vault
         else if (unreservedBalance == 0) {
@@ -226,6 +235,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         }
         // [6] otherwise make a new fork deposit vault with the new exchange rate and unreserved balance
         else {
+            uint256 newVaultIndex = depositVaults.length;
             depositVaults.push(
                 DepositVault({
                     owner: vault.owner,
@@ -242,7 +252,9 @@ contract RiftExchange is BlockHashStorage, Owned {
             vault.unreservedBalance = 0;
 
             // [7] add deposit vault index to liquidity provider
-            addDepositVaultIndexToLP(msg.sender, depositVaults.length - 1);
+            addDepositVaultIndexToLP(msg.sender, newVaultIndex);
+
+            emit ExchangeRateUpdated(newVaultIndex, newExchangeRate, unreservedBalance);
         }
     }
 
@@ -272,6 +284,8 @@ contract RiftExchange is BlockHashStorage, Owned {
         vault.withdrawnAmount += amountToWithdraw;
 
         DEPOSIT_TOKEN.transfer(msg.sender, amountToWithdraw);
+
+        emit LiquidityWithdrawn(globalVaultIndex, amountToWithdraw, vault.unreservedBalance);
     }
 
     function reserveLiquidity(
@@ -472,7 +486,13 @@ contract RiftExchange is BlockHashStorage, Owned {
         // [6] release funds to buyers ETH payout address
         DEPOSIT_TOKEN.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapOutputAmount - protocolFee);
 
-        emit SwapComplete(swapReservationIndex, swapReservation.nonce);
+        emit SwapComplete(
+            swapReservationIndex,
+            swapReservation.nonce,
+            swapReservation.ethPayoutAddress,
+            swapReservation.totalSwapOutputAmount,
+            protocolFee
+        );
     }
 
     function proveBlocks(
