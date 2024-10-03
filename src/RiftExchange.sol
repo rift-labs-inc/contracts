@@ -18,6 +18,7 @@ error OverwrittenProposedBlock();
 error NewDepositsPaused();
 error InvalidInputArrays();
 error InvalidReservationState();
+error NotApprovedHypernode();
 error AmountToReserveTooLow(uint256 index);
 
 interface IERC20 {
@@ -109,6 +110,7 @@ contract RiftExchange is BlockHashStorage, Owned {
     DepositVault[] public depositVaults;
     SwapReservation[] public swapReservations;
     mapping(address => LiquidityProvider) liquidityProviders;
+    mapping(address => bool) public permissionedHypernodes;
 
     // --------- EVENTS --------- //
     event LiquidityDeposited(address indexed depositor, uint256 depositVaultIndex, uint256 amount, uint64 exchangeRate);
@@ -122,6 +124,13 @@ contract RiftExchange is BlockHashStorage, Owned {
     modifier newDepositsNotPaused() {
         if (isDepositNewLiquidityPaused) {
             revert NewDepositsPaused();
+        }
+        _;
+    }
+
+    modifier onlyApprovedHypernode() {
+        if (!permissionedHypernodes[msg.sender]) {
+            revert NotApprovedHypernode();
         }
         _;
     }
@@ -408,7 +417,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes32[] memory blockHashes,
         uint256[] memory blockChainworks,
         bytes memory proof
-    ) public {
+    ) public onlyApprovedHypernode {
         // [0] retrieve swap reservation
         SwapReservation storage swapReservation = swapReservations[swapReservationIndex];
 
@@ -525,6 +534,14 @@ contract RiftExchange is BlockHashStorage, Owned {
 
     function updateProtocolFee(uint8 newProtocolFeeBP) public onlyOwner {
         protocolFeeBP = newProtocolFeeBP;
+    }
+
+    function addPermissionedHypernode(address hypernode) external onlyOwner {
+        permissionedHypernodes[hypernode] = true;
+    }
+
+    function removePermissionedHypernode(address hypernode) external onlyOwner {
+        permissionedHypernodes[hypernode] = false;
     }
 
     //--------- READ FUNCTIONS ---------//
