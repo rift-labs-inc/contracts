@@ -54,7 +54,6 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes32 lpReservationHash;
         bytes32 nonce; // sent in bitcoin tx calldata from buyer -> lps to prevent replay attacks
         uint256 totalSatsInputIncludingProxyFee; // in sats (including proxy wallet fee)
-        uint256 protocolFee; // in token's smallest unit (wei, μUSDT, etc)
         uint256 totalSwapOutputAmount; // in token's smallest unit (wei, μUSDT, etc)
         uint256 proposedBlockHeight;
         bytes32 proposedBlockHash;
@@ -333,10 +332,7 @@ contract RiftExchange is BlockHashStorage, Owned {
             abi.encode(ethPayoutAddress, block.timestamp, block.chainid, vaultHash, swapReservations.length) // TODO_BEFORE_AUDIT: fully audit nonce attack vector
         );
 
-        // [6] compute protocol fee
-        uint256 protocolFee = (combinedAmountsToReserve * protocolFeeBP) / BP_SCALE;
-
-        // [7] create new swap reservation
+        // [6] create new swap reservation
         swapReservations.push(
             SwapReservation({
                 owner: reservationOwner,
@@ -348,7 +344,6 @@ contract RiftExchange is BlockHashStorage, Owned {
                 totalSwapOutputAmount: combinedAmountsToReserve,
                 nonce: orderNonce,
                 totalSatsInputIncludingProxyFee: totalSatsInputIncludingProxyFee,
-                protocolFee: protocolFee,
                 proposedBlockHeight: 0,
                 proposedBlockHash: bytes32(0),
                 lpReservationHash: vaultHash,
