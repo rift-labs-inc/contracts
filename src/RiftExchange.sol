@@ -604,10 +604,17 @@ contract RiftExchange is BlockHashStorage, Owned {
 
     function verifyExpiredReservations(uint256[] memory expiredSwapReservationIndexes) internal view {
         for (uint256 i = 0; i < expiredSwapReservationIndexes.length; i++) {
+            SwapReservation storage reservation = swapReservations[expiredSwapReservationIndexes[i]];
+
+            // [0] skip if already marked as expired
+            if (reservation.state == ReservationState.Expired) {
+                continue;
+            }
+
+            // [1] ensure reservation is expired
             if (
-                block.timestamp - swapReservations[expiredSwapReservationIndexes[i]].reservationTimestamp <
-                RESERVATION_LOCKUP_PERIOD ||
-                swapReservations[expiredSwapReservationIndexes[i]].state != ReservationState.Created
+                block.timestamp - reservation.reservationTimestamp < RESERVATION_LOCKUP_PERIOD ||
+                reservation.state != ReservationState.Created
             ) {
                 revert ReservationNotExpired();
             }
