@@ -113,15 +113,9 @@ contract RiftExchange is BlockHashStorage, Owned {
     // --------- EVENTS --------- //
     event LiquidityDeposited(address indexed depositor, uint256 depositVaultIndex, uint256 amount, uint64 exchangeRate);
     event LiquidityReserved(address indexed reserver, uint256 swapReservationIndex, bytes32 orderNonce);
-    event SwapComplete(
-        uint256 swapReservationIndex,
-        bytes32 orderNonce,
-        address ethPayoutAddress,
-        uint256 totalSwapOutputAmount,
-        uint256 protocolFee
-    );
     event ProofSubmitted(address indexed prover, uint256 swapReservationIndex, bytes32 orderNonce);
     event ExchangeRateUpdated(uint256 indexed globalVaultIndex, uint64 newExchangeRate, uint256 unreservedBalance);
+    event SwapComplete(SwapReservation swapReservation, uint256 protocolFee);
     event LiquidityWithdrawn(uint256 indexed globalVaultIndex, uint192 amountWithdrawn, uint256 remainingBalance);
 
     // --------- MODIFIERS --------- //
@@ -486,13 +480,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         // [6] release funds to buyers ETH payout address
         DEPOSIT_TOKEN.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapOutputAmount - protocolFee);
 
-        emit SwapComplete(
-            swapReservationIndex,
-            swapReservation.nonce,
-            swapReservation.ethPayoutAddress,
-            swapReservation.totalSwapOutputAmount,
-            protocolFee
-        );
+        emit SwapComplete(swapReservation, protocolFee);
     }
 
     function proveBlocks(
