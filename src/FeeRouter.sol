@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.2;
 
-import {console} from "forge-std/console.sol";
-import {Owned} from "../lib/solmate/src/auth/Owned.sol";
+import { console } from "forge-std/console.sol";
+import { Owned } from "../lib/solmate/src/auth/Owned.sol";
 
 error InvalidPartitionLayout();
 error NotManager();

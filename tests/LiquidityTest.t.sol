@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.0;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
-import {ExchangeTestBase} from "./ExchangeTestBase.t.sol";
-import {RiftExchange} from "../src/RiftExchange.sol";
+import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
+import { ExchangeTestBase } from "./ExchangeTestBase.t.sol";
+import { RiftExchange } from "../src/RiftExchange.sol";
 
 contract LiquidityDepositTest is ExchangeTestBase {
     function testLpReservationHash() public view {
@@ -135,9 +135,7 @@ contract LiquidityDepositTest is ExchangeTestBase {
         // fetch the updated deposit and verify the new exchange rate
         RiftExchange.DepositVault memory updatedDeposit = riftExchange.getDepositVault(0);
         assertEq(
-            updatedDeposit.exchangeRate,
-            newBtcExchangeRate,
-            "BTC exchange rate should be updated to the new value"
+            updatedDeposit.exchangeRate, newBtcExchangeRate, "BTC exchange rate should be updated to the new value"
         );
 
         // Verify that the deposit amount remains unchanged
@@ -188,12 +186,7 @@ contract LiquidityDepositTest is ExchangeTestBase {
         console.log("USDT balance before reservation:", usdt.balanceOf(testAddress));
         uint256 demoTotalSatsInput = 10000;
         riftExchange.reserveLiquidity(
-            msg.sender,
-            vaultIndexesToReserve,
-            amountsToReserve,
-            ethPayoutAddress,
-            demoTotalSatsInput,
-            empty
+            msg.sender, vaultIndexesToReserve, amountsToReserve, ethPayoutAddress, demoTotalSatsInput, empty
         );
 
         // usdt balance after
@@ -256,9 +249,8 @@ contract LiquidityDepositTest is ExchangeTestBase {
         uint256[] memory empty = new uint256[](0);
 
         // Approve additional USDT for fees
-        uint256 totalReserveAmount = uint256(amountsToReserve[0]) +
-            uint256(amountsToReserve[1]) +
-            uint256(amountsToReserve[2]);
+        uint256 totalReserveAmount =
+            uint256(amountsToReserve[0]) + uint256(amountsToReserve[1]) + uint256(amountsToReserve[2]);
         uint256 additionalApproval = 3_000_000e6; // 3 million USDT for fees
         usdt.approve(address(riftExchange), totalReserveAmount + additionalApproval);
 
@@ -272,12 +264,7 @@ contract LiquidityDepositTest is ExchangeTestBase {
         uint256 demoTotalSatsInput = 30000; // Increased for multiple vaults
 
         riftExchange.reserveLiquidity(
-            msg.sender,
-            vaultIndexesToReserve,
-            amountsToReserve,
-            ethPayoutAddress,
-            demoTotalSatsInput,
-            empty
+            msg.sender, vaultIndexesToReserve, amountsToReserve, ethPayoutAddress, demoTotalSatsInput, empty
         );
 
         // USDT balance after
@@ -339,12 +326,7 @@ contract LiquidityDepositTest is ExchangeTestBase {
             uint256 gasBefore = gasleft();
             uint256 demoTotalSatsInput = 10000;
             riftExchange.reserveLiquidity(
-                msg.sender,
-                vaultIndexesToReserve,
-                amountsToReserve,
-                testAddress,
-                demoTotalSatsInput,
-                empty
+                msg.sender, vaultIndexesToReserve, amountsToReserve, testAddress, demoTotalSatsInput, empty
             );
             uint256 gasUsed = gasBefore - gasleft();
             totalGasUsed += gasUsed;

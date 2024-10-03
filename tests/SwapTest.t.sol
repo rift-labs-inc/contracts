@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
-import { console } from "forge-std/console.sol";
-import { ExchangeTestBase } from "./ExchangeTestBase.t.sol";
-import { RiftExchange } from "../src/RiftExchange.sol";
+import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
+import {ExchangeTestBase} from "./ExchangeTestBase.t.sol";
+import {RiftExchange} from "../src/RiftExchange.sol";
 
 contract SwapTest is ExchangeTestBase {
     function depositLiquidity() public {
@@ -42,12 +42,16 @@ contract SwapTest is ExchangeTestBase {
         uint192[] memory amountsToReserve = new uint192[](1);
         amountsToReserve[0] = amountOut;
         uint256[] memory noOverwrites = new uint256[](0);
-        riftExchange.reserveLiquidity(msg.sender, vaultIndexesToReserve, amountsToReserve, testAddress, 0, noOverwrites);
+        riftExchange.reserveLiquidity(
+            msg.sender,
+            vaultIndexesToReserve,
+            amountsToReserve,
+            testAddress,
+            0,
+            noOverwrites
+        );
 
         vm.stopPrank();
-
-        // Get balance of the hypernode before all onchain interactions
-        uint256 balanceHypernodeBefore = usdt.balanceOf(hypernode1);
 
         // Propose a proof
         bytes memory proof = abi.encodePacked(hex"deadbeef");

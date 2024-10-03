@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.0;
 
-import "forge-std/console.sol";
-
 error InvalidSafeBlock();
 error InvalidBlockHeights();
 error BlockDoesNotExist();
@@ -33,6 +31,11 @@ contract BlockHashStorage {
         minimumConfirmationDelta = _minimumConfirmationDelta;
     }
 
+    enum AddBlockReturn {
+        UNMODIFIED,
+        MODIFIED
+    }
+
     // Assumes that all blockHashes passed are in a chain as proven by the circuit
     function addBlock(
         uint256 safeBlockHeight,
@@ -40,28 +43,13 @@ contract BlockHashStorage {
         uint256 confirmationBlockHeight,
         bytes32[] memory blockHashes, // from safe block to confirmation block
         uint256[] memory blockChainworks
-    ) internal {
+    ) internal returns (AddBlockReturn) {
         uint256 tipBlockHeight = currentHeight;
         uint256 tipChainwork = chainworks[currentHeight];
-        uint256 confirmationBlockIndex = confirmationBlockHeight - safeBlockHeight;
-        uint256 proposedBlockIndex = proposedBlockHeight - safeBlockHeight;
-
-        // [0] ensure arrays are same length && matches delta between confirmationBlockHeight-safeBlockHeight (+/-1?)
-        if (
-            blockHashes.length != blockChainworks.length ||
-            blockHashes.length != confirmationBlockHeight - safeBlockHeight
-        ) {
-            revert BlockArraysMismatch();
-        }
 
         // [1] ensure safe < proposed < confirmation
         if (safeBlockHeight >= proposedBlockHeight || proposedBlockHeight >= confirmationBlockHeight) {
             revert InvalidBlockHeights();
-        }
-
-        // [2] ensure confirmationBlockHeight - proposedBlockHeight is >= minimumConfirmationDelta
-        if (confirmationBlockHeight - proposedBlockHeight < minimumConfirmationDelta) {
-            revert InvalidConfirmationBlock();
         }
 
         // [3] ensure safeBlockHeight exists in the contract ( ≠ bytes32(0) )
@@ -69,9 +57,25 @@ contract BlockHashStorage {
             revert InvalidSafeBlock();
         }
 
+        // [0] ensure arrays are same length && matches delta between confirmationBlockHeight-safeBlockHeight
+        if (
+            blockHashes.length != blockChainworks.length ||
+            blockHashes.length != (confirmationBlockHeight - safeBlockHeight) + 1
+        ) {
+            revert BlockArraysMismatch();
+        }
+
+        // [2] ensure confirmationBlockHeight - proposedBlockHeight is >= minimumConfirmationDelta
+        if (confirmationBlockHeight - proposedBlockHeight < minimumConfirmationDelta) {
+            revert InvalidConfirmationBlock();
+        }
+
+        uint256 confirmationBlockIndex = blockHashes.length - 1;
+        uint256 proposedBlockIndex = proposedBlockHeight - safeBlockHeight;
+
         // [4] return if prposed block already exists and matches
         if (blockchain[proposedBlockHeight] == blockHashes[proposedBlockIndex]) {
-            return;
+            return AddBlockReturn.UNMODIFIED;
         }
 
         // [5] handle block addition/overwrites if you have longer chainwork than tip
@@ -82,20 +86,20 @@ contract BlockHashStorage {
                 chainworks[i] = blockChainworks[i - safeBlockHeight];
             }
 
-            // [1] clear out everything past you confirmation block if you have longer chainwork than tip
+            // [1] clear out everything past your confirmation block if you have longer chainwork than tip
             if (confirmationBlockHeight < tipBlockHeight) {
                 for (uint256 i = confirmationBlockHeight + 1; i <= tipBlockHeight; i++) {
                     blockchain[i] = bytes32(0);
                     chainworks[i] = uint256(0);
                 }
             }
+
+            currentHeight = confirmationBlockHeight;
+            emit BlocksAdded(safeBlockHeight, blockHashes.length);
+            return AddBlockReturn.MODIFIED;
         }
         // [6] revert if confirmation block chainwork is less than tip chainwork
-        else {
-            revert InvalidChainwork();
-        }
-
-        emit BlocksAdded(safeBlockHeight, blockHashes.length);
+        revert InvalidChainwork();
     }
 
     function validateBlockExists(uint256 blockHeight) public view {
