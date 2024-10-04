@@ -52,7 +52,21 @@ error_signatures = [
     "NewDepositsPaused()",
     "InvalidInputArrays()",
     "InvalidReservationState()",
-    "AmountToReserveTooLow(uint256 index)"
+    "AmountToReserveTooLow(uint256 index)",
+    "InvalidExchangeRate()",
+    "NotVaultOwner()",
+    "NotEnoughLiquidity()",
+    "WithdrawalAmountError()",
+    "UpdateExchangeRateError()",
+    "ReservationNotExpired()",
+    "ReservationNotProved()",
+    "StillInChallengePeriod()",
+    "OverwrittenProposedBlock()",
+    "NewDepositsPaused()",
+    "InvalidInputArrays()",
+    "InvalidReservationState()",
+    "NotApprovedHypernode()",
+    "AmountToReserveTooLow(uint256 index)",
 ]
 
 def get_error_selector(error_signature):
