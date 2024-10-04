@@ -496,6 +496,9 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
 
         // [5] release protocol fee
         uint256 protocolFee = (swapReservation.totalSwapOutputAmount * protocolFeeBP) / bpScale;
+        if (protocolFee < 100000) {
+            protocolFee = 100000;
+        }
         depositToken.transfer(feeRouterAddress, protocolFee);
 
         // [6] release funds to buyers ETH payout address
