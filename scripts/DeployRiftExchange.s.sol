@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import "../src/RiftExchange.sol";
+import {Upgrades} from "@openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract DeployRiftExchange is Script {
     function stringToUint(string memory s) internal pure returns (uint256) {
@@ -135,7 +136,7 @@ contract DeployRiftExchange is Script {
 
         console.log("Deploying RiftExchange on chain with ID:", block.chainid);
 
-        uint256 initialCheckpointHeight = fetchChainHeight() - 6;
+        uint256 initialCheckpointHeight = fetchChainHeight() - 2;
         bytes32 initialBlockHash = fetchBlockHash(initialCheckpointHeight);
         bytes32 initialRetargetBlockHash = fetchBlockHash(calculateRetargetHeight(initialCheckpointHeight));
         uint256 initialChainwork = fetchChainwork(initialBlockHash);
@@ -153,11 +154,11 @@ contract DeployRiftExchange is Script {
         initialPermissionedHypernodes[0] = address(0x522042076f220f6B5363184ba6d8611AA1feeAF5); // Replace with actual addresses
 
         console.log("Deploying RiftExchange...");
-        // ... (existing logging statements)
 
-        // Try deploying RiftExchange
-        try
-            new RiftExchange(
+        // Deploy RiftExchange as a UUPS proxy
+        bytes memory initializeData = abi.encodeCall(
+            RiftExchange.initialize,
+            (
                 initialCheckpointHeight,
                 initialBlockHash,
                 initialRetargetBlockHash,
@@ -167,17 +168,13 @@ contract DeployRiftExchange is Script {
                 initialFeeRouterAddress,
                 msg.sender,
                 verificationKeyHash,
-                initialPermissionedHypernodes // New parameter
+                initialPermissionedHypernodes
             )
-        returns (RiftExchange riftExchange) {
-            console.log("RiftExchange deployed at:", address(riftExchange));
-        } catch Error(string memory reason) {
-            console.log("Failed to deploy RiftExchange:");
-            console.log(reason);
-        } catch (bytes memory lowLevelData) {
-            console.log("Failed to deploy RiftExchange (low level error):");
-            console.logBytes(lowLevelData);
-        }
+        );
+
+        address proxy = Upgrades.deployUUPSProxy("RiftExchange.sol:RiftExchange", initializeData);
+
+        console.log("RiftExchange proxy deployed at:", proxy);
 
         console.log("Deployment script finished.");
 

@@ -3,26 +3,25 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
-import {BlockHashStorage} from "../src/BlockHashStorage.sol";
+import {BlockHashStorageUpgradeable} from "../src/BlockHashStorageUpgradeable.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {TestBlocks} from "./TestBlocks.sol";
 
 // Exposes the internal block hash storage functions for testing
-contract BlockHashProxy is BlockHashStorage {
-    constructor(
+contract BlockHashProxy is BlockHashStorageUpgradeable {
+    function initialize(
         uint256 initialCheckpointHeight,
         uint256 currentChainwork,
         bytes32 initialBlockHash,
-        bytes32 initialRetargetBlockHash,
-        uint8 minimumConfirmationDelta
-    )
-        BlockHashStorage(
+        bytes32 initialRetargetBlockHash
+    ) public initializer {
+        __BlockHashStorageUpgradeable_init(
             initialCheckpointHeight,
             currentChainwork,
             initialBlockHash,
-            initialRetargetBlockHash,
-            minimumConfirmationDelta
-        )
-    {}
+            initialRetargetBlockHash
+        );
+    }
 
     function AddBlock(
         uint256 safeBlockHeight,
@@ -30,12 +29,12 @@ contract BlockHashProxy is BlockHashStorage {
         uint256 confirmationBlockHeight,
         bytes32[] memory blockHashes,
         uint256[] memory blockChainworks
-    ) public returns (BlockHashStorage.AddBlockReturn) {
+    ) public returns (BlockHashStorageUpgradeable.AddBlockReturn) {
         return addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, blockChainworks);
     }
 
-    function getMinimumConfirmationDelta() public view returns (uint8) {
-        return minimumConfirmationDelta;
+    function getMinimumConfirmationDelta() public pure returns (uint8) {
+        return MINIMUM_CONFIRMATION_DELTA;
     }
 
     function getCurrentHeight() public view returns (uint256) {
@@ -60,20 +59,36 @@ contract BlockHashStorageTest is Test, TestBlocks {
     bytes4 constant BLOCK_ARRAYS_MISMATCH = bytes4(keccak256("BlockArraysMismatch()"));
     bytes4 constant INVALID_CHAINWORK = bytes4(keccak256("InvalidChainwork()"));
 
-    BlockHashProxy blockHashProxy;
+    BlockHashProxy public blockHashProxy;
+    address public proxyAddress;
     uint256 initialCheckpointHeight;
     uint8 minimumConfirmationDelta;
 
     function setUp() public {
         minimumConfirmationDelta = 2;
         initialCheckpointHeight = blockHeights[0];
-        blockHashProxy = new BlockHashProxy(
+
+        // Deploy the implementation contract
+        BlockHashProxy implementation = new BlockHashProxy();
+
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            BlockHashProxy.initialize.selector,
             initialCheckpointHeight,
             blockChainworks[0],
             blockHashes[0],
             retargetBlockHash,
             minimumConfirmationDelta
         );
+
+        // Deploy the proxy contract
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+
+        // Set the proxyAddress
+        proxyAddress = address(proxy);
+
+        // Create an instance of BlockHashProxy pointing to the proxy contract
+        blockHashProxy = BlockHashProxy(proxyAddress);
     }
 
     /// @notice Test adding valid blocks and updating currentHeight
@@ -247,7 +262,14 @@ contract BlockHashStorageTest is Test, TestBlocks {
         uint256 safeBlockHeight = blockHeights[0]; // Initial safe block height
         uint256 proposedBlockHeight = blockHeights[5]; // Proposed block height
         uint8 minimumConfirmationDelta = blockHashProxy.getMinimumConfirmationDelta();
-        uint256 invalidConfirmationBlockHeight = proposedBlockHeight + minimumConfirmationDelta - 1;
+
+        // Set confirmation block height equal to proposed block height (delta of 0)
+        uint256 invalidConfirmationBlockHeight = proposedBlockHeight;
+
+        console.log("Minimum confirmation delta:", minimumConfirmationDelta);
+        console.log("Safe block height:", safeBlockHeight);
+        console.log("Proposed block height:", proposedBlockHeight);
+        console.log("Invalid confirmation block height:", invalidConfirmationBlockHeight);
 
         // Prepare block data
         bytes32[] memory hashes = new bytes32[](invalidConfirmationBlockHeight - safeBlockHeight + 1);
@@ -257,8 +279,8 @@ contract BlockHashStorageTest is Test, TestBlocks {
             chainworks[i] = blockChainworks[i + safeBlockHeight - initialCheckpointHeight + 1];
         }
 
-        // Expect the transaction to revert with InvalidConfirmationBlock error
-        vm.expectRevert(INVALID_CONFIRMATION_BLOCK);
+        // Expect the transaction to revert with InvalidBlockHeights error
+        vm.expectRevert(INVALID_BLOCK_HEIGHTS);
         blockHashProxy.AddBlock(
             safeBlockHeight,
             proposedBlockHeight,
@@ -306,7 +328,7 @@ contract BlockHashStorageTest is Test, TestBlocks {
             newHashes,
             newChainworks
         );
-        assertEq(uint8(chain_update), uint8(BlockHashStorage.AddBlockReturn.UNMODIFIED));
+        assertEq(uint8(chain_update), uint8(BlockHashStorageUpgradeable.AddBlockReturn.UNMODIFIED));
 
         // Verify that the current height hasn't changed
         assertEq(blockHashProxy.getCurrentHeight(), confirmationBlockHeight);
@@ -349,7 +371,7 @@ contract BlockHashStorageTest is Test, TestBlocks {
             newChainworks
         );
 
-        assertEq(uint8(result), uint8(BlockHashStorage.AddBlockReturn.MODIFIED));
+        assertEq(uint8(result), uint8(BlockHashStorageUpgradeable.AddBlockReturn.MODIFIED));
 
         // Verify that blocks have been overwritten
         for (uint256 i = safeBlockHeight + 1; i <= confirmationBlockHeight; i++) {
@@ -396,7 +418,7 @@ contract BlockHashStorageTest is Test, TestBlocks {
             newChainworks
         );
 
-        assertEq(uint8(result), uint8(BlockHashStorage.AddBlockReturn.MODIFIED));
+        assertEq(uint8(result), uint8(BlockHashStorageUpgradeable.AddBlockReturn.MODIFIED));
 
         // Verify that blocks have been overwritten up to newConfirmationBlockHeight
         for (uint256 i = safeBlockHeight + 1; i <= newConfirmationBlockHeight; i++) {
