@@ -147,11 +147,14 @@ contract DeployRiftExchange is Script {
         address verifierContractAddress = addresses.verifierContractAddress;
         address depositTokenAddress = addresses.depositTokenAddress;
         bytes32 verificationKeyHash = bytes32(0x00334569e4b8059d7b1a70c011d7d92b5d3ce28f2148b32cd2396aeda3ae5af1);
-        address payable initialFeeRouterAddress = payable(address(0x9FEEf1C10B8cD9Bc6c6B6B44ad96e07F805decaf)); // TODO: update this with the actual fee router address
+        address payable initialFeeRouterAddress = payable(address(0xfEe8d79961c529E06233fbF64F96454c2656BFEE)); // TODO: update this with the actual fee router address
 
         // Define initial permissioned hypernodes
         address[] memory initialPermissionedHypernodes = new address[](2);
-        initialPermissionedHypernodes[0] = address(0x522042076f220f6B5363184ba6d8611AA1feeAF5); // Replace with actual addresses
+        initialPermissionedHypernodes[0] = address(0xbeEF58c34ab8E6CF9F27359d934648DFd630BeeF); // Replace with actual addresses
+
+        address owner = address(0x82bdA835Ab91D3F38Cb291030A5B0e6Dff086d44);
+
 
         console.log("Deploying RiftExchange...");
 
@@ -166,7 +169,7 @@ contract DeployRiftExchange is Script {
                 verifierContractAddress,
                 depositTokenAddress,
                 initialFeeRouterAddress,
-                msg.sender,
+                owner,
                 verificationKeyHash,
                 initialPermissionedHypernodes
             )
