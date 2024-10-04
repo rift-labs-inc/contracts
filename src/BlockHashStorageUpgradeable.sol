@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.0;
 
+import "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
+
 error InvalidSafeBlock();
 error InvalidBlockHeights();
 error BlockDoesNotExist();
@@ -9,26 +11,30 @@ error InvalidProposedBlockOverwrite();
 error BlockArraysMismatch();
 error InvalidChainwork();
 
-contract BlockHashStorage {
+contract BlockHashStorageUpgradeable is Initializable {
+    uint8 constant MINIMUM_CONFIRMATION_DELTA = 1;
+
     mapping(uint256 => bytes32) blockchain; // block height => block hash
     mapping(uint256 => uint256) chainworks; // block height => chainwork
     uint256 public currentHeight;
-    uint8 immutable minimumConfirmationDelta;
 
     event BlocksAdded(uint256 startBlockHeight, uint256 count);
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function __BlockHashStorageUpgradeable_init(
         uint256 safeBlockHeight,
         uint256 safeBlockChainwork,
         bytes32 safeBlockHash,
-        bytes32 retargetBlockHash,
-        uint8 _minimumConfirmationDelta
-    ) {
+        bytes32 retargetBlockHash
+    ) internal onlyInitializing {
         currentHeight = safeBlockHeight;
         chainworks[safeBlockHeight] = safeBlockChainwork;
         blockchain[safeBlockHeight] = safeBlockHash;
         blockchain[calculateRetargetHeight(safeBlockHeight)] = retargetBlockHash;
-        minimumConfirmationDelta = _minimumConfirmationDelta;
     }
 
     enum AddBlockReturn {
@@ -66,7 +72,7 @@ contract BlockHashStorage {
         }
 
         // [2] ensure confirmationBlockHeight - proposedBlockHeight is >= minimumConfirmationDelta
-        if (confirmationBlockHeight - proposedBlockHeight < minimumConfirmationDelta) {
+        if (confirmationBlockHeight - proposedBlockHeight < MINIMUM_CONFIRMATION_DELTA) {
             revert InvalidConfirmationBlock();
         }
 

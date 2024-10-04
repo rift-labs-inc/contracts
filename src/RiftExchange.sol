@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.2;
 
-import {Owned} from "solmate/auth/Owned.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
-import {BlockHashStorage} from "./BlockHashStorage.sol";
+import {BlockHashStorageUpgradeable} from "./BlockHashStorageUpgradeable.sol";
 import {console} from "forge-std/console.sol";
+import {UUPSUpgradeable} from "@openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
 
 error InvalidExchangeRate();
 error NotVaultOwner();
@@ -35,7 +36,7 @@ interface IERC20 {
     function decimals() external view returns (uint8);
 }
 
-contract RiftExchange is BlockHashStorage, Owned {
+contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
     // --------- TYPES --------- //
     enum ReservationState {
         None, // 0
@@ -56,7 +57,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         bytes32 nonce; // sent in bitcoin tx calldata from buyer -> lps to prevent replay attacks
         uint256 totalSatsInputIncludingProxyFee; // in sats (including proxy wallet fee)
         uint256 totalSwapOutputAmount; // in token's smallest unit (wei, μUSDT, etc)
-        uint256 proposedBlockHeight;
+        uint64 proposedBlockHeight;
         bytes32 proposedBlockHash;
         uint256[] vaultIndexes;
         uint192[] amountsToReserve;
@@ -93,19 +94,18 @@ contract RiftExchange is BlockHashStorage, Owned {
     }
 
     // --------- CONSTANTS --------- //
-    uint256 public constant SCALE = 1e18;
-    uint256 public constant BP_SCALE = 10000;
-    uint32 public constant RESERVATION_LOCKUP_PERIOD = 4 hours;
-    uint32 public constant CHALLENGE_PERIOD = 5 minutes;
-    uint8 public constant MINIMUM_CONFIRMATION_DELTA = 1;
-    IERC20 public immutable DEPOSIT_TOKEN;
-    uint8 public immutable TOKEN_DECIMALS;
-    bytes32 public immutable CIRCUIT_VERIFICATION_KEY;
-    ISP1Verifier public immutable VERIFIER_CONTRACT;
+    uint256 public constant scale = 1e18;
+    uint256 public constant bpScale = 10000;
+    uint32 public constant reservationLockupPeriod = 4 hours;
+    uint32 public constant challengePeriod = 5 minutes;
+    IERC20 public depositToken;
+    uint8 public tokenDecimals;
+    bytes32 public circuitVerificationKey;
+    ISP1Verifier public verifierContract;
 
     // --------- STATE --------- //
-    bool public isDepositNewLiquidityPaused = false;
-    uint8 public protocolFeeBP = 10; // 10 bps = 0.1%
+    bool public isDepositNewLiquidityPaused;
+    uint8 public protocolFeeBP;
     address feeRouterAddress;
 
     DepositVault[] public depositVaults;
@@ -136,38 +136,44 @@ contract RiftExchange is BlockHashStorage, Owned {
         _;
     }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     //--------- CONSTRUCTOR ---------//
-    constructor(
+    function initialize(
         uint256 initialCheckpointHeight,
         bytes32 initialBlockHash,
         bytes32 initialRetargetBlockHash,
         uint256 initialChainwork,
         address verifierContractAddress,
         address depositTokenAddress,
-        address initialFeeRouterAddress,
-        address owner,
-        bytes32 circuitVerificationKey,
+        address payable initialFeeRouterAddress,
+        address initialOwner,
+        bytes32 verificationKeyHash,
         address[] memory initialPermissionedHypernodes
-    )
-        BlockHashStorage(
+    ) public initializer {
+        __UUPSUpgradeable_init();
+        __Ownable_init(initialOwner);
+        __BlockHashStorageUpgradeable_init(
             initialCheckpointHeight,
             initialChainwork,
             initialBlockHash,
-            initialRetargetBlockHash,
-            minimumConfirmationDelta
-        )
-        Owned(owner)
-    {
-        // [0] set verifier contract and deposit token
-        CIRCUIT_VERIFICATION_KEY = circuitVerificationKey;
-        VERIFIER_CONTRACT = ISP1Verifier(verifierContractAddress);
-        DEPOSIT_TOKEN = IERC20(depositTokenAddress);
-        TOKEN_DECIMALS = DEPOSIT_TOKEN.decimals();
+            initialRetargetBlockHash
+        );
 
-        // [1] set fee router address
+        // Initialize other state variables
+        depositToken = IERC20(depositTokenAddress);
+        tokenDecimals = IERC20(depositTokenAddress).decimals();
+        circuitVerificationKey = verificationKeyHash;
+        verifierContract = ISP1Verifier(verifierContractAddress);
         feeRouterAddress = initialFeeRouterAddress;
 
-        // [2] set initial permissioned hypernodes
+        // Move initial assignments here
+        isDepositNewLiquidityPaused = false;
+        protocolFeeBP = 10; // 10 bps = 0.1%
+
         for (uint256 i = 0; i < initialPermissionedHypernodes.length; i++) {
             permissionedHypernodes[initialPermissionedHypernodes[i]] = true;
         }
@@ -206,7 +212,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         addDepositVaultIndexToLP(msg.sender, depositVaults.length - 1);
 
         // [4] transfer deposit token to contract
-        DEPOSIT_TOKEN.transferFrom(msg.sender, address(this), depositAmount);
+        depositToken.transferFrom(msg.sender, address(this), depositAmount);
 
         emit LiquidityDeposited(msg.sender, depositVaults.length - 1, depositAmount, exchangeRate);
     }
@@ -292,7 +298,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         vault.unreservedBalance -= amountToWithdraw;
         vault.withdrawnAmount += amountToWithdraw;
 
-        DEPOSIT_TOKEN.transfer(msg.sender, amountToWithdraw);
+        depositToken.transfer(msg.sender, amountToWithdraw);
 
         emit LiquidityWithdrawn(globalVaultIndex, amountToWithdraw, vault.unreservedBalance);
     }
@@ -325,7 +331,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         for (uint256 i = 0; i < amountsToReserve.length; i++) {
             uint256 exchangeRate = depositVaults[vaultIndexesToReserve[i]].exchangeRate;
             combinedAmountsToReserve += amountsToReserve[i];
-            uint256 bufferedAmountToReserve = bufferTo18Decimals(amountsToReserve[i], TOKEN_DECIMALS);
+            uint256 bufferedAmountToReserve = bufferTo18Decimals(amountsToReserve[i], tokenDecimals);
             uint256 expectedSatsOutput = bufferedAmountToReserve / exchangeRate;
             combinedExpectedSatsOutput += expectedSatsOutput;
             expectedSatsOutputArray[i] = uint64(expectedSatsOutput);
@@ -448,14 +454,14 @@ contract RiftExchange is BlockHashStorage, Owned {
         );
 
         // [3] verify proof (will revert if invalid)
-        VERIFIER_CONTRACT.verifyProof(CIRCUIT_VERIFICATION_KEY, publicInputs, proof);
+        verifierContract.verifyProof(circuitVerificationKey, publicInputs, proof);
 
         // [4] add verified block to block hash storage contract
         addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, blockChainworks); // TODO: audit
 
         // [5] update swap reservation
         swapReservation.state = ReservationState.Proved;
-        swapReservation.liquidityUnlockedTimestamp = uint64(block.timestamp) + CHALLENGE_PERIOD;
+        swapReservation.liquidityUnlockedTimestamp = uint64(block.timestamp) + challengePeriod;
         swapReservation.proposedBlockHeight = proposedBlockHeight;
         swapReservation.proposedBlockHash = blockHashes[proposedBlockHeight - safeBlockHeight];
 
@@ -489,11 +495,11 @@ contract RiftExchange is BlockHashStorage, Owned {
         swapReservation.state = ReservationState.Completed;
 
         // [5] release protocol fee
-        uint256 protocolFee = (swapReservation.totalSwapOutputAmount * protocolFeeBP) / BP_SCALE;
-        DEPOSIT_TOKEN.transfer(feeRouterAddress, protocolFee);
+        uint256 protocolFee = (swapReservation.totalSwapOutputAmount * protocolFeeBP) / bpScale;
+        depositToken.transfer(feeRouterAddress, protocolFee);
 
         // [6] release funds to buyers ETH payout address
-        DEPOSIT_TOKEN.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapOutputAmount - protocolFee);
+        depositToken.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapOutputAmount - protocolFee);
 
         emit SwapComplete(swapReservationIndex, swapReservation, protocolFee);
     }
@@ -522,7 +528,7 @@ contract RiftExchange is BlockHashStorage, Owned {
         );
 
         // [1] verify proof (will revert if invalid)
-        VERIFIER_CONTRACT.verifyProof(CIRCUIT_VERIFICATION_KEY, publicInputs, proof);
+        verifierContract.verifyProof(circuitVerificationKey, publicInputs, proof);
 
         // [2] add verified blocks to block hash storage contract
         addBlock(safeBlockHeight, proposedBlockHeight, confirmationBlockHeight, blockHashes, blockChainworks);
@@ -613,7 +619,7 @@ contract RiftExchange is BlockHashStorage, Owned {
 
             // [1] ensure reservation is expired
             if (
-                block.timestamp - reservation.reservationTimestamp < RESERVATION_LOCKUP_PERIOD ||
+                block.timestamp - reservation.reservationTimestamp < reservationLockupPeriod ||
                 reservation.state != ReservationState.Created
             ) {
                 revert ReservationNotExpired();
@@ -631,4 +637,14 @@ contract RiftExchange is BlockHashStorage, Owned {
     function addDepositVaultIndexToLP(address lpAddress, uint256 vaultIndex) internal {
         liquidityProviders[lpAddress].depositVaultIndexes.push(vaultIndex);
     }
+
+    function updateCircuitVerificationKey(bytes32 newVerificationKey) internal onlyOwner {
+        circuitVerificationKey = newVerificationKey;
+    }
+
+    function updateVerifierContract(address newVerifierContractAddress) internal onlyOwner {
+        verifierContract = ISP1Verifier(newVerifierContractAddress);
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

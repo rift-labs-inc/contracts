@@ -8,6 +8,7 @@ import {WETH} from "../lib/solmate/src/tokens/WETH.sol";
 import {ERC20} from "../lib/solmate/src/tokens/ERC20.sol";
 import {TestBlocks} from "./TestBlocks.sol";
 import {MockUSDT} from "./MockUSDT.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract MockVerifier {
     function verifyProof(bytes32 programVKey, bytes calldata publicValues, bytes calldata proofBytes) external view {}
@@ -15,6 +16,7 @@ contract MockVerifier {
 
 contract ExchangeTestBase is Test, TestBlocks {
     RiftExchange riftExchange;
+    address public proxyAddress;
     MockUSDT usdt;
     address testAddress = address(0x69696969);
     address lp1 = address(0x69);
@@ -50,7 +52,12 @@ contract ExchangeTestBase is Test, TestBlocks {
         address[] memory initialPermissionedHypernodes = new address[](1);
         initialPermissionedHypernodes[0] = hypernode1;
 
-        riftExchange = new RiftExchange(
+        // Deploy the implementation contract
+        RiftExchange implementation = new RiftExchange();
+
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            RiftExchange.initialize.selector,
             initialCheckpointHeight,
             initialBlockHash,
             initialRetargetBlockHash,
@@ -62,6 +69,15 @@ contract ExchangeTestBase is Test, TestBlocks {
             hex"deadbeef",
             initialPermissionedHypernodes
         );
+
+        // Deploy the proxy contract
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+
+        // Set the proxyAddress
+        proxyAddress = address(proxy);
+
+        // Create an instance of RiftExchange pointing to the proxy contract
+        riftExchange = RiftExchange(proxyAddress);
 
         riftExchange.addPermissionedHypernode(hypernode1);
     }
