@@ -38,6 +38,7 @@ contract ExchangeTestBase is Test, TestBlocks {
     bytes4 constant NOT_ENOUGH_LIQUIDITY = bytes4(keccak256("NotEnoughLiquidity()"));
     bytes4 constant RESERVATION_AMOUNT_TOO_LOW = bytes4(keccak256("ReservationAmountTooLow()"));
     bytes4 constant RESERVATION_EXPIRED = bytes4(keccak256("ReservationExpired()"));
+    bytes4 constant RESERVATION_NOT_EXPIRED = bytes4(keccak256("ReservationNotExpired()"));
 
     function setUp() public {
         bytes32 initialBlockHash = blockHashes[0];
