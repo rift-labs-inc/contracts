@@ -495,13 +495,6 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         // [4] mark swap reservation as completed
         swapReservation.state = ReservationState.Completed;
 
-        // [5] update unreserved balances in deposit vaults
-        for (uint256 i = 0; i < swapReservation.vaultIndexes.length; i++) {
-            uint256 vaultIndex = swapReservation.vaultIndexes[i];
-            uint256 amountToSubtract = swapReservation.amountsToReserve[i];
-            depositVaults[vaultIndex].unreservedBalance -= amountToSubtract;
-        }
-
         // [5] release protocol fee
         uint256 protocolFee = (swapReservation.totalSwapOutputAmount * protocolFeeBP) / bpScale;
         if (protocolFee < 100000) {
