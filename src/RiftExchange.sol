@@ -3,7 +3,6 @@ pragma solidity ^0.8.2;
 
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 import {BlockHashStorageUpgradeable} from "./BlockHashStorageUpgradeable.sol";
-import {console} from "forge-std/console.sol";
 import {UUPSUpgradeable} from "@openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
 
@@ -484,10 +483,6 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         }
 
         // [3] ensure swap block is still part of longest chain
-        console.log("proposedBlockHash actual");
-        console.logBytes32(getBlockHash(swapReservation.proposedBlockHeight));
-        console.log("proposedBlockHash expected");
-        console.logBytes32(swapReservation.proposedBlockHash);
         if (getBlockHash(swapReservation.proposedBlockHeight) != swapReservation.proposedBlockHash) {
             revert OverwrittenProposedBlock();
         }
@@ -645,12 +640,10 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         verifierContract = ISP1Verifier(newVerifierContractAddress);
     }
 
-    // TODO: remove this after fix
-    function nullifyDepositVaults() public onlyOwner {
-        for (uint256 i = 0; i < depositVaults.length; i++) {
-            depositVaults[i].unreservedBalance = 0;
-        }
-    }
-
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    function overrideDepositVault(uint256 index, uint256 newUnreservedBalance) public onlyOwner {
+        require(index < depositVaults.length, "Invalid deposit vault index");
+        depositVaults[index].unreservedBalance = newUnreservedBalance;
+    }
 }
