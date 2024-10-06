@@ -20,6 +20,8 @@ error InvalidInputArrays();
 error InvalidReservationState();
 error NotApprovedHypernode();
 error AmountToReserveTooLow(uint256 index);
+error TransferFailed();
+error InvalidFeeRouterAddress();
 
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
@@ -98,6 +100,7 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
     uint256 public constant bpScale = 10000;
     uint32 public constant reservationLockupPeriod = 4 hours;
     uint32 public constant challengePeriod = 5 minutes;
+    uint32 public constant minProtocolFee = 100000;
     IERC20 public depositToken;
     uint8 public tokenDecimals;
     bytes32 public circuitVerificationKey;
@@ -120,6 +123,7 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
     event ExchangeRateUpdated(uint256 indexed globalVaultIndex, uint64 newExchangeRate, uint256 unreservedBalance);
     event SwapComplete(uint256 swapReservationIndex, SwapReservation swapReservation, uint256 protocolFee);
     event LiquidityWithdrawn(uint256 indexed globalVaultIndex, uint192 amountWithdrawn, uint256 remainingBalance);
+    event ProtocolFeeUpdated(uint8 newProtocolFeeBP);
 
     // --------- MODIFIERS --------- //
     modifier newDepositsNotPaused() {
@@ -168,6 +172,9 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         tokenDecimals = IERC20(depositTokenAddress).decimals();
         circuitVerificationKey = verificationKeyHash;
         verifierContract = ISP1Verifier(verifierContractAddress);
+        if (initialFeeRouterAddress == address(0)) {
+            revert InvalidFeeRouterAddress();
+        }
         feeRouterAddress = initialFeeRouterAddress;
 
         // Move initial assignments here
@@ -212,7 +219,9 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         addDepositVaultIndexToLP(msg.sender, depositVaults.length - 1);
 
         // [4] transfer deposit token to contract
-        depositToken.transferFrom(msg.sender, address(this), depositAmount);
+        if (!depositToken.transferFrom(msg.sender, address(this), depositAmount)) {
+            revert TransferFailed();
+        }
 
         emit LiquidityDeposited(msg.sender, depositVaults.length - 1, depositAmount, exchangeRate);
     }
@@ -298,7 +307,9 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         vault.unreservedBalance -= amountToWithdraw;
         vault.withdrawnAmount += amountToWithdraw;
 
-        depositToken.transfer(msg.sender, amountToWithdraw);
+        if (!depositToken.transfer(msg.sender, amountToWithdraw)) {
+            revert TransferFailed();
+        }
 
         emit LiquidityWithdrawn(globalVaultIndex, amountToWithdraw, vault.unreservedBalance);
     }
@@ -492,13 +503,22 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
 
         // [5] release protocol fee
         uint256 protocolFee = (swapReservation.totalSwapOutputAmount * protocolFeeBP) / bpScale;
-        if (protocolFee < 100000) {
-            protocolFee = 100000;
+        if (protocolFee < minProtocolFee) {
+            protocolFee = minProtocolFee;
         }
-        depositToken.transfer(feeRouterAddress, protocolFee);
+        if (!depositToken.transfer(feeRouterAddress, protocolFee)) {
+            revert TransferFailed();
+        }
 
         // [6] release funds to buyers ETH payout address
-        depositToken.transfer(swapReservation.ethPayoutAddress, swapReservation.totalSwapOutputAmount - protocolFee);
+        if (
+            !depositToken.transfer(
+                swapReservation.ethPayoutAddress,
+                swapReservation.totalSwapOutputAmount - protocolFee
+            )
+        ) {
+            revert TransferFailed();
+        }
 
         emit SwapComplete(swapReservationIndex, swapReservation, protocolFee);
     }
@@ -539,12 +559,15 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
     }
 
     function updateFeeRouter(address payable newProtocolAddress) public onlyOwner {
-        // TODO: make this only fee router?
+        if (newProtocolAddress == address(0)) {
+            revert InvalidFeeRouterAddress();
+        }
         feeRouterAddress = newProtocolAddress;
     }
 
     function updateProtocolFee(uint8 newProtocolFeeBP) public onlyOwner {
         protocolFeeBP = newProtocolFeeBP;
+        emit ProtocolFeeUpdated(newProtocolFeeBP);
     }
 
     function addPermissionedHypernode(address hypernode) external onlyOwner {
@@ -621,9 +644,9 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         }
     }
 
-    function bufferTo18Decimals(uint256 amount, uint8 tokenDecimals) internal pure returns (uint256) {
-        if (tokenDecimals < 18) {
-            return amount * (10 ** (18 - tokenDecimals));
+    function bufferTo18Decimals(uint256 amount, uint8 _tokenDecimals) internal pure returns (uint256) {
+        if (_tokenDecimals < 18) {
+            return amount * (10 ** (18 - _tokenDecimals));
         }
         return amount;
     }

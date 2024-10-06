@@ -20,7 +20,13 @@ source .env && forge clean && forge build --via-ir && forge script --chain arbit
 source .env && forge clean && forge build --via-ir && forge script --chain arbitrum scripts/UpgradeRiftExchange.s.sol:UpgradeRiftExchange --rpc-url $ARBITRUM_RPC_URL --broadcast --sender $SENDER --private-key $SENDER_PRIVATE_KEY --verify --etherscan-api-key $ARBITRUM_ETHERSCAN_API_KEY --ffi -vvvv --via-ir
 ```
 
-### Tests
+### Unit Tests
 ```
 forge test --via-ir
+```
+
+### Run Static Analysis 
+Install [slither](https://github.com/crytic/slither) and run the following command:
+```
+python -m slither .
 ```
