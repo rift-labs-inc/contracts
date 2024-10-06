@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicensed
-pragma solidity ^0.8.2;
+pragma solidity ^0.8.27;
 
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 import {BlockHashStorageUpgradeable} from "./BlockHashStorageUpgradeable.sol";
@@ -97,10 +97,10 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
 
     // --------- CONSTANTS --------- //
     uint256 public constant scale = 1e18;
-    uint256 public constant bpScale = 10000;
+    uint256 public constant bpScale = 10e3;
     uint32 public constant reservationLockupPeriod = 4 hours;
     uint32 public constant challengePeriod = 5 minutes;
-    uint32 public constant minProtocolFee = 100000;
+    uint32 public constant minProtocolFee = 10e4;
     IERC20 public depositToken;
     uint8 public tokenDecimals;
     bytes32 public circuitVerificationKey;
@@ -218,12 +218,12 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         // [3] add deposit vault index to liquidity provider
         addDepositVaultIndexToLP(msg.sender, depositVaults.length - 1);
 
+        emit LiquidityDeposited(msg.sender, depositVaults.length - 1, depositAmount, exchangeRate);
+
         // [4] transfer deposit token to contract
         if (!depositToken.transferFrom(msg.sender, address(this), depositAmount)) {
             revert TransferFailed();
         }
-
-        emit LiquidityDeposited(msg.sender, depositVaults.length - 1, depositAmount, exchangeRate);
     }
 
     function updateExchangeRate(
@@ -307,11 +307,12 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         vault.unreservedBalance -= amountToWithdraw;
         vault.withdrawnAmount += amountToWithdraw;
 
+        emit LiquidityWithdrawn(globalVaultIndex, amountToWithdraw, vault.unreservedBalance);
+
         if (!depositToken.transfer(msg.sender, amountToWithdraw)) {
             revert TransferFailed();
         }
 
-        emit LiquidityWithdrawn(globalVaultIndex, amountToWithdraw, vault.unreservedBalance);
     }
 
     function reserveLiquidity(
@@ -338,11 +339,12 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         uint256 combinedAmountsToReserve = 0;
         uint256 combinedExpectedSatsOutput = 0;
         uint64[] memory expectedSatsOutputArray = new uint64[](vaultIndexesToReserve.length);
+        uint8 _tokenDecimals = tokenDecimals;
 
         for (uint256 i = 0; i < amountsToReserve.length; i++) {
             uint256 exchangeRate = depositVaults[vaultIndexesToReserve[i]].exchangeRate;
             combinedAmountsToReserve += amountsToReserve[i];
-            uint256 bufferedAmountToReserve = bufferTo18Decimals(amountsToReserve[i], tokenDecimals);
+            uint256 bufferedAmountToReserve = bufferTo18Decimals(amountsToReserve[i], _tokenDecimals);
             uint256 expectedSatsOutput = bufferedAmountToReserve / exchangeRate;
             combinedExpectedSatsOutput += expectedSatsOutput;
             expectedSatsOutputArray[i] = uint64(expectedSatsOutput);
@@ -506,9 +508,13 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         if (protocolFee < minProtocolFee) {
             protocolFee = minProtocolFee;
         }
+
+        emit SwapComplete(swapReservationIndex, swapReservation, protocolFee);
+
         if (!depositToken.transfer(feeRouterAddress, protocolFee)) {
             revert TransferFailed();
         }
+
 
         // [6] release funds to buyers ETH payout address
         if (
@@ -519,8 +525,6 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         ) {
             revert TransferFailed();
         }
-
-        emit SwapComplete(swapReservationIndex, swapReservation, protocolFee);
     }
 
     function proveBlocks(
@@ -644,29 +648,25 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         }
     }
 
-    function bufferTo18Decimals(uint256 amount, uint8 _tokenDecimals) internal pure returns (uint256) {
-        if (_tokenDecimals < 18) {
-            return amount * (10 ** (18 - _tokenDecimals));
-        }
-        return amount;
-    }
-
     function addDepositVaultIndexToLP(address lpAddress, uint256 vaultIndex) internal {
         liquidityProviders[lpAddress].depositVaultIndexes.push(vaultIndex);
     }
 
-    function updateCircuitVerificationKey(bytes32 newVerificationKey) internal onlyOwner {
+    function bufferTo18Decimals(uint256 amount, uint8 decimals) internal pure returns (uint256) {
+        if (decimals < 18) {
+            return amount * (10 ** (18 - decimals));
+        }
+        return amount;
+    }
+
+
+    function updateCircuitVerificationKey(bytes32 newVerificationKey) public onlyOwner {
         circuitVerificationKey = newVerificationKey;
     }
 
-    function updateVerifierContract(address newVerifierContractAddress) internal onlyOwner {
+    function updateVerifierContract(address newVerifierContractAddress) public onlyOwner {
         verifierContract = ISP1Verifier(newVerifierContractAddress);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
-
-    function overrideDepositVault(uint256 index, uint256 newUnreservedBalance) public onlyOwner {
-        require(index < depositVaults.length, "Invalid deposit vault index");
-        depositVaults[index].unreservedBalance = newUnreservedBalance;
-    }
 }
