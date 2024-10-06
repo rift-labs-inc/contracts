@@ -2,9 +2,10 @@
 pragma solidity ^0.8.27;
 
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
-import {BlockHashStorageUpgradeable} from "./BlockHashStorageUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
+
+import {BlockHashStorageUpgradeable} from "./BlockHashStorageUpgradeable.sol";
 
 error InvalidExchangeRate();
 error NotVaultOwner();
@@ -312,7 +313,6 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         if (!depositToken.transfer(msg.sender, amountToWithdraw)) {
             revert TransferFailed();
         }
-
     }
 
     function reserveLiquidity(
@@ -515,7 +515,6 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
             revert TransferFailed();
         }
 
-
         // [6] release funds to buyers ETH payout address
         if (
             !depositToken.transfer(
@@ -658,7 +657,6 @@ contract RiftExchange is BlockHashStorageUpgradeable, OwnableUpgradeable, UUPSUp
         }
         return amount;
     }
-
 
     function updateCircuitVerificationKey(bytes32 newVerificationKey) public onlyOwner {
         circuitVerificationKey = newVerificationKey;
