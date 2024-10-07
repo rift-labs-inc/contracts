@@ -1,4 +1,5 @@
 # Rift Exchange Contracts
+**DEPRECATED, all protocol code now located [here](https://github.com/rift-labs-inc/protocol)** <br> <br>
 
 [Current Exchange Deployment](https://arbiscan.io/address/0xdc63082c8bfebc973f2906fbfdb696e88735cca3)
 
