@@ -72,6 +72,7 @@ map(reservation.initialBalance >= reservation.unreservedBalance)
 ```
 
 Invariant 2: The sum of differences between initial balance and unreserved balance across all deposit vaults should equal the sum of all non-completed reserved amounts
+(Time expired + Created reservation states)
 ```pseudocode
 sum(depositVault.initialBalance - depositVault.unreservedBalance for all depositVaults) ==
     sum(nonCompletedReservations.amountsToReserve for all nonCompletedReservations)
